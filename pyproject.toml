@@ -1,0 +1,47 @@
+[project]
+name = "watchtowr-mcp"
+version = "0.1.2"
+description = "MCP server for the watchTowr Platform"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp==3.2.0",
+    "httpx==0.28.1",
+    "mcp==1.29.1",
+    "pydantic==2.12.5",
+    "python-dateutil==2.9.0.post0",
+    "urllib3==2.7.0",
+    "watchtowr-api-sdk",
+]
+
+[project.scripts]
+watchtowr-mcp = "watchtowr_mcp_server.mcp:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["watchtowr_mcp_server"]
+
+[tool.uv.sources]
+watchtowr-api-sdk = { path = "watchtowr-api-sdk", editable = true }
+
+[tool.uv]
+# The SDK's setup.py pins urllib3 < 2.1.0 conservatively, but the MCP server
+# has been running fine on urllib3 2.x in production. Override the SDK ceiling
+# so uv can resolve. Revisit if upstream loosens the constraint.
+override-dependencies = ["urllib3==2.7.0"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+markers = [
+    "live: requires WATCHTOWR_API_KEY + WATCHTOWR_PLATFORM_HOST (auto-skip if missing)",
+    "write: mutates platform state — opt-in only (run with --run-writes)",
+]
+addopts = "-ra --strict-markers"
+

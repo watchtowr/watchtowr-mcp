@@ -1,0 +1,4 @@
+[submodule "watchtowr-api-sdk"]
+	path = watchtowr-api-sdk
+	url = https://github.com/watchtowr/watchtowr-api-sdk-python.git
+	branch = main

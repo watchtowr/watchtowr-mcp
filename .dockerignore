@@ -1,0 +1,10 @@
+__pycache__
+.venv
+.git
+.github
+.gitignore
+.dockerignore
+.cursorignore
+.cursorindexingignore
+README.md
+*.md
