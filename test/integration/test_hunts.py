@@ -30,7 +30,7 @@ def test_search_hunts(live_env, call):
     assert_ok(call("search_hunts", page_size=5), allow_empty=True)
     assert_ok(call("search_hunts", statuses="received,in-progress", page_size=5), allow_empty=True)
     assert_ok(call("search_hunts", types="bespoke,proactive", page_size=5), allow_empty=True)
-    assert_ok(call("search_hunts", only_resolved=False, page_size=5), allow_empty=True)
+    assert_ok(call("search_hunts", resolved=False, page_size=5), allow_empty=True)
     assert_ok(call("search_hunts", resource_filter="hasFindings", page_size=5), allow_empty=True)
 
 

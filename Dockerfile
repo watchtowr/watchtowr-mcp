@@ -14,6 +14,7 @@ COPY watchtowr_mcp_server/ watchtowr_mcp_server/
 RUN uv pip install -e .
 
 ENV PORT=8080
+ENV MCP_HOST=0.0.0.0
 EXPOSE $PORT
 
-CMD ["uv", "run", "watchtowr-mcp"]
+CMD ["uv", "run", "--no-sync", "watchtowr-mcp"]

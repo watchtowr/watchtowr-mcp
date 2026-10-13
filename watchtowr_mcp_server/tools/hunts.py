@@ -1,6 +1,7 @@
 from watchtowr_api_sdk.api.hunts_api import HuntsApi
 
-from ..client import get_api_client, get_total, parse_date, severity_display
+from ..client import get_api_client, get_total, parse_date, portal_line, portal_link, severity_display, raise_tool_error
+from ..failed_calls import PartialAnswer
 
 
 def register_hunt_tools(mcp):
@@ -34,7 +35,7 @@ def register_hunt_tools(mcp):
                 type_str = f" ({', '.join(type_bits)})" if type_bits else ""
                 lines.append(
                     f"• [ID:{hid}] {title} - {status}{type_str} "
-                    f"[{findings} findings, {assets} assets] (created: {created})"
+                    f"[{findings} findings, {assets} assets] (created: {created}){portal_link('hunt', hid)}"
                 )
 
             header = f"Recent Hunts ({len(lines)}"
@@ -43,7 +44,7 @@ def register_hunt_tools(mcp):
             header += "):"
             return header + "\n" + "\n".join(lines)
         except Exception as e:
-            return f"Error retrieving recent hunts: {e}"
+            raise_tool_error("retrieving recent hunts", e)
 
     @mcp.tool()
     def get_hunt_details(hunt_id: int) -> str:
@@ -62,6 +63,7 @@ def register_hunt_tools(mcp):
 
             lines = [
                 f"Hunt #{getattr(h, 'id', hunt_id)}",
+                *portal_line("hunt", getattr(h, 'id', hunt_id)),
                 f"Title: {getattr(h, 'title', 'N/A')}",
                 f"Status: {getattr(h, 'status', 'N/A')}",
                 f"Type: {getattr(h, 'type', 'N/A')}",
@@ -106,7 +108,7 @@ def register_hunt_tools(mcp):
 
             return "\n".join(lines)
         except Exception as e:
-            return f"Error retrieving hunt details: {e}"
+            raise_tool_error("retrieving hunt details", e)
 
     @mcp.tool()
     def list_findings_by_hunt(hunt_id: int, page: int = 1, page_size: int = 30) -> str:
@@ -133,15 +135,15 @@ def register_hunt_tools(mcp):
                 severity = severity_display(getattr(f, 'severity', None))
                 title = getattr(f, 'title', 'No title')
                 status = getattr(f, 'status', 'Unknown')
-                lines.append(f"• [ID:{fid}] [{severity}] {title} ({status})")
+                lines.append(f"• [ID:{fid}] [{severity}] {title} ({status}){portal_link('finding', fid)}")
 
             header = f"Findings for Hunt {hunt_id} ({len(lines)}"
             if total:
                 header += f" of {total}"
-            header += "):"
+            header = "\n".join([header + "):", *portal_line('hunt', hunt_id)])
             return header + "\n" + "\n".join(lines)
         except Exception as e:
-            return f"Error retrieving findings for hunt: {e}"
+            raise_tool_error("retrieving findings for hunt", e)
 
     @mcp.tool()
     def list_assets_by_hunt(hunt_id: int, page: int = 1, page_size: int = 30) -> str:
@@ -172,15 +174,15 @@ def register_hunt_tools(mcp):
                 asset_type = getattr(a, 'type', '')
                 status = getattr(a, 'status', 'Unknown')
                 type_str = f" [{asset_type}]" if asset_type else ""
-                lines.append(f"• [ID:{aid}] {name}{type_str} - {status}")
+                lines.append(f"• [ID:{aid}] {name}{type_str} - {status}{portal_link('asset', aid, asset_type)}")
 
             header = f"Assets for Hunt {hunt_id} ({len(lines)}"
             if total:
                 header += f" of {total}"
-            header += "):"
+            header = "\n".join([header + "):", *portal_line('hunt', hunt_id)])
             return header + "\n" + "\n".join(lines)
         except Exception as e:
-            return f"Error retrieving assets for hunt: {e}"
+            raise_tool_error("retrieving assets for hunt", e)
 
     @mcp.tool()
     def search_hunts(
@@ -192,9 +194,10 @@ def register_hunt_tools(mcp):
         updated_from: str = None,
         updated_to: str = None,
         resource_filter: str = None,
-        only_resolved: bool = None,
+        resolved: bool = None,
         page: int = 1,
         page_size: int = 30,
+        only_resolved: bool = None,
     ) -> str:
         """Search hunts with rich filters.
 
@@ -207,13 +210,16 @@ def register_hunt_tools(mcp):
             updated_from: Updated start date (YYYY-MM-DD).
             updated_to: Updated end date (YYYY-MM-DD).
             resource_filter: Filter by resource status (hasAssetsOrFindings, hasFindings, investigate, notAffected).
-            only_resolved: Filter to only show resolved hunts.
+            resolved: True returns only resolved hunts, False only unresolved hunts; omit for both.
             page: Page number.
             page_size: Results per page (max 30).
+            only_resolved: Deprecated alias for resolved; resolved wins when both are given.
         """
         try:
             api = HuntsApi(get_api_client())
             kwargs = {"page": page, "page_size": min(page_size, 30)}
+            if resolved is None:
+                resolved = only_resolved
             if hunt_search:
                 kwargs["hunt_search"] = hunt_search
             if statuses:
@@ -230,8 +236,8 @@ def register_hunt_tools(mcp):
                 kwargs["updated_to"] = parse_date(updated_to)
             if resource_filter:
                 kwargs["resource_filter"] = resource_filter
-            if only_resolved is not None:
-                kwargs["only_resolved"] = only_resolved
+            if resolved is not None:
+                kwargs["resolved"] = resolved
 
             response = api.get_client_hunts(**kwargs)
 
@@ -250,7 +256,7 @@ def register_hunt_tools(mcp):
                 rt_str = f" ({request_type})" if request_type else ""
                 lines.append(
                     f"• [ID:{hid}] {title} - {status}{rt_str} "
-                    f"[{findings} findings, {assets} assets]"
+                    f"[{findings} findings, {assets} assets]{portal_link('hunt', hid)}"
                 )
 
             header = f"Hunts ({len(lines)}"
@@ -259,7 +265,7 @@ def register_hunt_tools(mcp):
             header += "):"
             return header + "\n" + "\n".join(lines)
         except Exception as e:
-            return f"Error searching hunts: {e}"
+            raise_tool_error("searching hunts", e)
 
     @mcp.tool()
     def get_hunt_impact_summary(hunt_id: int) -> str:
@@ -280,6 +286,7 @@ def register_hunt_tools(mcp):
 
             lines = [
                 f"Hunt Impact Summary: {getattr(h, 'title', 'N/A')}",
+                *portal_line("hunt", getattr(h, 'id', hunt_id)),
                 f"Status: {getattr(h, 'status', 'N/A')}",
                 f"Total Findings: {getattr(h, 'total_findings', 0)}",
                 f"Total Assets: {getattr(h, 'total_assets', 0)}",
@@ -289,34 +296,43 @@ def register_hunt_tools(mcp):
             if hypothesis:
                 lines.append(f"Hypothesis: {hypothesis}")
 
-            findings_resp = api.get_list_finding_by_hunt(id=hunt_id, page_size=30)
-            if hasattr(findings_resp, 'data') and findings_resp.data:
-                severity_counts = {}
-                for f in findings_resp.data:
-                    sev = severity_display(getattr(f, 'severity', None))
-                    severity_counts[sev] = severity_counts.get(sev, 0) + 1
-                lines.append("\nFindings by Severity:")
-                ordered_sevs = ["Critical", "High", "Medium", "Low", "Info"]
-                for sev in ordered_sevs:
-                    if sev in severity_counts:
-                        lines.append(f"  • {sev}: {severity_counts[sev]}")
-                unknown_sevs = {k: v for k, v in severity_counts.items()
-                                if k not in ordered_sevs}
-                for sev, count in unknown_sevs.items():
-                    lines.append(f"  • {sev}: {count}")
+            parts = PartialAnswer(f"Hunt {hunt_id} impact summary")
+            with parts.part("Findings"):
+                findings_resp = api.get_list_finding_by_hunt(id=hunt_id, page_size=30)
+                if hasattr(findings_resp, 'data') and findings_resp.data:
+                    severity_counts = {}
+                    for f in findings_resp.data:
+                        sev = severity_display(getattr(f, 'severity', None))
+                        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+                    sampled = len(findings_resp.data)
+                    findings_total = get_total(findings_resp) or sampled
+                    scope = f" (first {sampled} of {findings_total} findings)" if findings_total > sampled else ""
+                    lines.append(f"\nFindings by Severity{scope}:")
+                    ordered_sevs = ["Critical", "High", "Medium", "Low", "Info"]
+                    for sev in ordered_sevs:
+                        if sev in severity_counts:
+                            lines.append(f"  • {sev}: {severity_counts[sev]}")
+                    unknown_sevs = {k: v for k, v in severity_counts.items()
+                                    if k not in ordered_sevs}
+                    for sev, count in unknown_sevs.items():
+                        lines.append(f"  • {sev}: {count}")
 
-            assets_resp = api.get_list_asset_by_hunt(id=hunt_id, page_size=30)
-            if hasattr(assets_resp, 'data') and assets_resp.data:
-                lines.append("\nAssets Tested:")
-                for a in assets_resp.data[:10]:
-                    name = getattr(a, 'name', 'Unknown')
-                    asset_type = getattr(a, 'type', '')
-                    type_str = f" [{asset_type}]" if asset_type else ""
-                    lines.append(f"  • {name}{type_str}")
-                if len(assets_resp.data) > 10:
-                    lines.append(f"  ... and {len(assets_resp.data) - 10} more")
+            with parts.part("Assets"):
+                assets_resp = api.get_list_asset_by_hunt(id=hunt_id, page_size=30)
+                if hasattr(assets_resp, 'data') and assets_resp.data:
+                    lines.append("\nAssets Tested:")
+                    for a in assets_resp.data[:10]:
+                        name = getattr(a, 'name', 'Unknown')
+                        asset_type = getattr(a, 'type', '')
+                        type_str = f" [{asset_type}]" if asset_type else ""
+                        lines.append(f"  • {name}{type_str}{portal_link('asset', getattr(a, 'id', None), asset_type)}")
+                    assets_total = get_total(assets_resp) or len(assets_resp.data)
+                    if assets_total > 10:
+                        lines.append(f"  ... and {assets_total - 10} more")
 
+            parts.raise_if_every_part_failed()
+            lines[1:1] = parts.incomplete_lines
             return "\n".join(lines)
         except Exception as e:
-            return f"Error generating hunt impact summary: {e}"
+            raise_tool_error("generating hunt impact summary", e)
 

@@ -1,5 +1,6 @@
 """Integration tests for intelligence tools."""
 import pytest
+from fastmcp.exceptions import ToolError
 from ._helpers import assert_ok
 
 pytestmark = pytest.mark.live
@@ -10,22 +11,24 @@ def test_list_vulnerability_intelligence(live_env, call):
 
 
 def test_get_vulnerability_intelligence_details(live_env, call):
-    response = call("get_vulnerability_intelligence_details", identifier="CVE-2024-3400")
+    try:
+        response = call("get_vulnerability_intelligence_details", identifier="CVE-2024-3400")
+    except ToolError as e:
+        assert "HTTP 404" in str(e), f"unexpected error (not a 404 not-found): {e}"
+        return
     assert isinstance(response, str) and response, "tool returned no usable response"
-    if response.startswith("Error"):
-        assert "(404)" in response, f"unexpected error (not a 404 not-found): {response[:200]}"
 
 
 def test_list_adversary_intelligence(live_env, call):
     assert_ok(call("list_adversary_intelligence", page_size=5), allow_empty=True)
 
 
-# def test_list_compromised_endpoints(live_env, call):
-#     assert_ok(call("list_compromised_endpoints", page_size=5), allow_empty=True)
+def test_list_compromised_endpoints(live_env, call):
+    assert_ok(call("list_compromised_endpoints", page_size=5), allow_empty=True)
 
 
-# def test_list_credential_attempt_logs(live_env, call):
-#     assert_ok(call("list_credential_attempt_logs", page_size=5), allow_empty=True)
+def test_list_credential_attempt_logs(live_env, call):
+    assert_ok(call("list_credential_attempt_logs", page_size=5), allow_empty=True)
 
 
 def test_list_finding_retest_history(live_env, call):
@@ -69,11 +72,11 @@ def test_get_adversary_intelligence_details(live_env, call, sample_adversary_id)
     assert_ok(response)
 
 
-# def test_get_compromised_endpoint_credentials(live_env, call, sample_compromised_endpoint_id):
-#     assert_ok(
-#         call("get_compromised_endpoint_credentials", endpoint_id=sample_compromised_endpoint_id, page_size=5),
-#         allow_empty=True,
-#     )
+def test_get_compromised_endpoint_credentials(live_env, call, sample_compromised_endpoint_id):
+    assert_ok(
+        call("get_compromised_endpoint_credentials", endpoint_id=sample_compromised_endpoint_id, page_size=5),
+        allow_empty=True,
+    )
 
 
 def test_get_finding_retest_history_details(live_env, call, sample_finding_id):

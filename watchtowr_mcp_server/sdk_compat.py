@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import pprint
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, get_args
 
 from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 from typing_extensions import Self
@@ -75,12 +75,87 @@ class FindingRetestResponseDtoCompat(BaseModel):
         )
 
 
+def _validate_unless_none(validate):
+    def validate_non_null_value(value):
+        return None if value is None else validate(value)
+
+    return validate_non_null_value
+
+
+NULLABLE_FIELDS = (
+    ("ClientEngineSettings", "intrusive_http_checks_enabled"),
+    ("ClientEngineSettingsDetails", "intrusive_http_checks_enabled"),
+)
+
+
+def _sdk_models_embedded_in(model_class: type[BaseModel]) -> set[str]:
+    def walk(annotation):
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            yield annotation.__name__
+        for argument in get_args(annotation):
+            yield from walk(argument)
+
+    return {name for field in model_class.model_fields.values() for name in walk(field.annotation)}
+
+
+def models_embedding(models_pkg, model_names: set[str]) -> list[str]:
+    embedded_in = {
+        name: _sdk_models_embedded_in(model_class) - {name}
+        for name, model_class in vars(models_pkg).items()
+        if isinstance(model_class, type) and issubclass(model_class, BaseModel)
+    }
+    embedding = set(model_names)
+    while True:
+        more = {name for name, embedded in embedded_in.items() if embedded & embedding} - embedding
+        if not more:
+            break
+        embedding |= more
+    pending = embedding - set(model_names)
+    ordered: list[str] = []
+    while pending:
+        ready = sorted(name for name in pending if not embedded_in[name] & pending) or sorted(pending)
+        ordered.extend(ready)
+        pending -= set(ready)
+    return ordered
+
+
+def accept_null_field(model_class: type[BaseModel], field_name: str) -> None:
+    field = model_class.model_fields.get(field_name)
+    if field is None or not field.is_required():
+        return
+    field.annotation = Optional[field.annotation]
+    field.default = None
+    for validator in model_class.__pydantic_decorators__.field_validators.values():
+        if field_name in validator.info.fields:
+            validator.func = _validate_unless_none(validator.func)
+    model_class.model_rebuild(force=True)
+
+
+WHOIS_MODELS_THAT_DROP_UNKNOWN_KEYS = ("WhoisDataObject", "IpWhoisData", "IpWhoisDataObject", "IpWhoisNet")
+
+
+def drop_unknown_keys_before_from_dict(model_class) -> None:
+    if not hasattr(model_class, "stock_from_dict"):
+        model_class.stock_from_dict = model_class.from_dict
+    field_names = frozenset(model_class.model_fields)
+
+    def from_dict_without_unknown_keys(cls, obj: Optional[Dict[str, Any]]) -> Any:
+        if isinstance(obj, dict):
+            obj = {key: value for key, value in obj.items() if key in field_names}
+            if isinstance(obj.get("dnssec"), list):
+                obj["dnssec"] = ", ".join(str(value) for value in obj["dnssec"])
+        return cls.stock_from_dict(obj)
+
+    model_class.from_dict = classmethod(from_dict_without_unknown_keys)  # type: ignore[assignment]
+
+
 def apply_watchtowr_sdk_compat_patches() -> None:
     import watchtowr_api_sdk.models.finding_retest_response_dto as dto_mod
     import watchtowr_api_sdk.models.client_finding as cf_mod
     import watchtowr_api_sdk.models.paginated_client_findings as pcf_mod
     import watchtowr_api_sdk.models.retest as retest_mod
     import watchtowr_api_sdk.models.link as link_mod
+    import watchtowr_api_sdk.models as models_pkg
     from watchtowr_api_sdk.models.client_finding_assignee import ClientFindingAssignee
     from watchtowr_api_sdk.models.client_finding_impact_tag import ClientFindingImpactTag
 
@@ -98,6 +173,14 @@ def apply_watchtowr_sdk_compat_patches() -> None:
         )
 
     link_mod.Link.from_dict = classmethod(link_from_dict)  # type: ignore[assignment]
+
+    for model_name in WHOIS_MODELS_THAT_DROP_UNKNOWN_KEYS:
+        drop_unknown_keys_before_from_dict(getattr(models_pkg, model_name))
+
+    for model_name, field_name in NULLABLE_FIELDS:
+        accept_null_field(getattr(models_pkg, model_name), field_name)
+    for model_name in models_embedding(models_pkg, {model_name for model_name, _ in NULLABLE_FIELDS}):
+        getattr(models_pkg, model_name).model_rebuild(force=True)
 
     dto_mod.FindingRetestResponseDto = FindingRetestResponseDtoCompat
     cf_mod.FindingRetestResponseDto = dto_mod.FindingRetestResponseDto
@@ -175,8 +258,6 @@ def apply_watchtowr_sdk_compat_patches() -> None:
     cf_mod.ClientFinding.model_rebuild(force=True)
     pcf_mod.PaginatedClientFindings.model_rebuild(force=True)
     
-
-    import watchtowr_api_sdk.models as models_pkg
 
     models_pkg.FindingRetestResponseDto = dto_mod.FindingRetestResponseDto
 

@@ -11,12 +11,13 @@ import os
 import re
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from watchtowr_mcp_server.sdk_compat import apply_watchtowr_sdk_compat_patches
 from watchtowr_mcp_server.tools import register_all_tools
 
 
-ID_PATTERN = re.compile(r"\[ID:(\d+)\]")
+ID_PATTERN = re.compile(r"\[ID:(\d+)(?:\.0)?\]")
 
 
 class ToolCapture:
@@ -86,15 +87,20 @@ def _first_id(text: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _call_or_skip(call, name: str, **kwargs) -> str:
+    try:
+        return call(name, **kwargs)
+    except ToolError as e:
+        pytest.skip(f"{name} returned error: {e}")
+
+
 def _sample_via_list(call, list_tool: str, label: str, **kwargs) -> int:
     """Call a list_* tool and pull the first [ID:N] out of the response.
 
     Skips the test (and any dependent test) with a clear message if the tenant
     has zero records of that type.
     """
-    response = call(list_tool, **kwargs)
-    if isinstance(response, str) and response.startswith("Error"):
-        pytest.skip(f"{list_tool} returned error: {response!r}")
+    response = _call_or_skip(call, list_tool, **kwargs)
     sample = _first_id(response)
     if sample is None:
         pytest.skip(f"no {label} returned by {list_tool} in this tenant")
@@ -109,9 +115,7 @@ def sample_finding_id(live_env, call) -> int:
 @pytest.fixture(scope="session")
 def sample_retestable_finding_id(live_env, call) -> int:
     """Return the first finding that can be retested (remaining > 0, no active retest)."""
-    response = call("search_findings", page_size=30)
-    if isinstance(response, str) and response.startswith("Error"):
-        pytest.skip(f"search_findings returned error: {response!r}")
+    response = _call_or_skip(call, "search_findings", page_size=30)
 
     ids = ID_PATTERN.findall(response)
     if not ids:
@@ -119,8 +123,9 @@ def sample_retestable_finding_id(live_env, call) -> int:
 
     for fid_str in ids:
         fid = int(fid_str)
-        details = call("get_finding_details", finding_id=fid)
-        if not isinstance(details, str) or details.startswith("Error"):
+        try:
+            details = call("get_finding_details", finding_id=fid)
+        except ToolError:
             continue
         remaining = None
         for line in details.splitlines():
@@ -146,7 +151,7 @@ def sample_hunt_id(live_env, call) -> int:
 
 
 
-_HUNT_TITLE_PATTERN = re.compile(r"\[ID:\d+\]\s+(.+?)\s+-\s+")
+_HUNT_TITLE_PATTERN = re.compile(r"\[ID:\d+(?:\.0)?\]\s+(.+?)\s+-\s+")
 
 
 @pytest.fixture(scope="session")
@@ -157,9 +162,7 @@ def sample_hunt_title(live_env, call) -> str:
     actual hunt instead of hardcoding a term that may not exist in the tenant.
     Skips when the tenant has no hunts or no title >= 3 chars (DTO min length).
     """
-    response = call("search_hunts", page_size=30)
-    if isinstance(response, str) and response.startswith("Error"):
-        pytest.skip(f"search_hunts returned error: {response!r}")
+    response = _call_or_skip(call, "search_hunts", page_size=30)
 
     for title in _HUNT_TITLE_PATTERN.findall(response or ""):
         title = title.strip()
@@ -254,7 +257,7 @@ def sample_adversary_id(live_env, call) -> int:
     return _sample_via_list(call, "list_adversary_intelligence", "adversary profiles", page_size=5)
 
 
-# @pytest.fixture(scope="session")
-# def sample_compromised_endpoint_id(live_env, call) -> int:
-#     return _sample_via_list(call, "list_compromised_endpoints", "compromised endpoints", page_size=5)
+@pytest.fixture(scope="session")
+def sample_compromised_endpoint_id(live_env, call) -> int:
+    return _sample_via_list(call, "list_compromised_endpoints", "compromised endpoints", page_size=5)
 

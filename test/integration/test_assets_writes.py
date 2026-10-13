@@ -4,6 +4,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from ._helpers import assert_ok
 
@@ -36,14 +37,14 @@ def test_add_seed_asset_with_invalid_tld(live_env, call):
     in the tenant with the title 'mcp-test-<uuid>' for easy cleanup.
     """
     marker = f"mcp-test-{uuid.uuid4().hex[:8]}.invalid"
-    response = call(
-        "add_seed_asset",
-        asset_type="domain",
-        asset_value=marker,
-        asset_title=marker,
-    )
     # The API now strictly validates TLDs and will reject .invalid.
-    assert response.startswith("Error"), f"expected an error for invalid domain but got: {response!r}"
+    with pytest.raises(ToolError):
+        call(
+            "add_seed_asset",
+            asset_type="domain",
+            asset_value=marker,
+            asset_title=marker,
+        )
 
 
 def test_update_asset_status_api_doc_roundtrip(live_env, call, sample_api_documentation_id):
@@ -79,32 +80,34 @@ def test_manage_engine_settings_roundtrip(live_env, call, sample_ip_id):
 
 
 def test_set_asset_criticality_roundtrip(live_env, call, sample_ip_id):
-    response = call(
-        "set_asset_criticality",
-        asset_type="ip",
-        asset_id=sample_ip_id,
-        criticality="Low",
-    )
-    # Ignore 409 if criticality is already 'Low'
-    if "409" in response and "already set" in response.lower():
-        pass
-    else:
-        assert_ok(response)
+    try:
+        response = call(
+            "set_asset_criticality",
+            asset_type="ip",
+            asset_id=sample_ip_id,
+            criticality="Low",
+        )
+    except ToolError as e:
+        if "HTTP 409" not in str(e):
+            raise
+        pytest.skip(f"criticality is already Low: {e}")
+    assert_ok(response)
 
 
 def test_manage_asset_business_units_assign(live_env, call, sample_ip_id, sample_bu_id):
-    response = call(
-        "manage_asset_business_units",
-        asset_type="ip",
-        asset_id=sample_ip_id,
-        action="assign",
-        business_unit_ids=[sample_bu_id],
-    )
-    # Ignore 409 if business unit is already assigned
-    if "409" in response:
-        pass
-    else:
-        assert_ok(response)
+    try:
+        response = call(
+            "manage_asset_business_units",
+            asset_type="ip",
+            asset_id=sample_ip_id,
+            action="assign",
+            business_unit_ids=[sample_bu_id],
+        )
+    except ToolError as e:
+        if "HTTP 409" not in str(e):
+            raise
+        pytest.skip(f"business unit is already assigned: {e}")
+    assert_ok(response)
 
 
 def test_manage_asset_notes_create(live_env, call, sample_ip_id):

@@ -6,7 +6,7 @@ from ._helpers import assert_ok
 def test_get_asset_dns_records(live_env, call):
     import re
     domains = call("list_asset_domains", page_size=1)
-    match = re.search(r'Name:\s*(\S+)', domains)
+    match = re.search(r'\[ID:[^\]]+\] (\S+)', domains)
     if not match:
         pytest.skip("no domains found to test with")
     domain_name = match.group(1)

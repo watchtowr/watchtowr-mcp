@@ -4,7 +4,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that c
 
 ## Features
 
-- **113 tools** covering the full watchTowr Platform API — assets, findings, hunts, certificates, suspicious domains, and more
+- **116 tools** covering the full watchTowr Platform API — assets, findings, hunts, certificates, suspicious domains, and more
 - **Read and write** — query your attack surface and take action (update statuses, trigger retests, submit seed assets)
 - **Composite intelligence** — built-in tools for attack surface summaries, change detection, executive scorecards, and compliance reporting
 - **Secure** — authenticates via API key with tenant isolation; credentials never leave your environment
@@ -13,7 +13,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that c
 
 - **watchTowr Platform account** with API access enabled
 - **API Key** — obtained from your watchTowr Platform dashboard under Settings → API Management
-- **Platform Host** — your watchTowr instance URL (e.g. `https://your-tenant.your-region.watchtowr.io`)
+- **Platform Host** — your watchTowr instance URL (e.g. `https://your-tenant.your-region.client.watchtowr.io`)
 - **Python 3.10+** and [uv](https://docs.astral.sh/uv/) (for local installation), or **Docker**
 
 ## Quick Start
@@ -33,10 +33,14 @@ cd watchtowr-mcp
 # Install everything in one step (uv resolves the SDK from the submodule)
 uv sync
 
-# Run the server
-WATCHTOWR_API_KEY="your-api-key" \
-WATCHTOWR_PLATFORM_HOST="https://your-tenant.your-region.watchtowr.io" \
-uv run watchtowr-mcp
+cp .env.example .env
+chmod 600 .env
+```
+
+Set `WATCHTOWR_API_KEY` and `WATCHTOWR_PLATFORM_HOST` in `.env` (see [API key handling](#api-key-handling)), then run the server:
+
+```bash
+uv run --env-file .env watchtowr-mcp
 ```
 
 If you already cloned without submodules, run `git submodule update --init --recursive` once, then `uv sync`.
@@ -83,25 +87,25 @@ If your checkout predates the SDK move to [`watchtowr-api-sdk-python`](https://g
 docker build -t watchtowr-mcp .
 ```
 
+Then create `.env` in the checkout as for a local install: `cp .env.example .env`, `chmod 600 .env`, and set your API key and Platform host. `docker run --env-file` reads each line literally, so keep every line as `KEY=value`, with no `export`, no quotes and no trailing `# comment`.
+
 #### stdio — for MCP clients
 
 ```bash
-docker run -it --rm \
-  -e WATCHTOWR_API_KEY="your-api-key" \
-  -e WATCHTOWR_PLATFORM_HOST="https://your-tenant.your-region.watchtowr.io" \
-  watchtowr-mcp
+docker run -it --rm --env-file .env watchtowr-mcp
 ```
 
 #### HTTP — standalone service
 
 ```bash
 docker run -d --rm \
-  -e WATCHTOWR_API_KEY="your-api-key" \
-  -e WATCHTOWR_PLATFORM_HOST="https://your-tenant.your-region.watchtowr.io" \
+  --env-file .env \
   -e MCP_TRANSPORT=streamable-http \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   watchtowr-mcp
 ```
+
+In HTTP mode there is no server-wide API key: every request must send the caller's own watchTowr API key as `Authorization: Bearer <api-key>`, and requests with a Host or Origin outside the allow-lists are rejected. The container binds `0.0.0.0` only so Docker can forward the port; `-p 127.0.0.1:8080:8080` keeps it reachable from this machine only. Exposing it further needs TLS in front and matching `MCP_ALLOWED_HOSTS` / `MCP_ALLOWED_ORIGINS`.
 
 ## MCP Client Configuration
 
@@ -114,15 +118,19 @@ docker run -d --rm \
       "command": "uv",
       "args": [
         "--directory", "/path/to/watchtowr-mcp",
-        "run", "watchtowr-mcp"
-      ],
-      "env": {
-        "WATCHTOWR_API_KEY": "your-api-key",
-        "WATCHTOWR_PLATFORM_HOST": "https://your-tenant.your-region.watchtowr.io"
-      }
+        "run", "--env-file", ".env", "watchtowr-mcp"
+      ]
     }
   }
 }
+```
+
+`.env` is read from `/path/to/watchtowr-mcp`, so the key stays out of this config file.
+
+### Claude Code (local)
+
+```bash
+claude mcp add watchtowr -- uv --directory /path/to/watchtowr-mcp run --env-file .env watchtowr-mcp
 ```
 
 ### Claude Desktop / Cursor (Docker)
@@ -136,8 +144,7 @@ docker run -d --rm \
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
-        "--env", "WATCHTOWR_API_KEY=your-api-key",
-        "--env", "WATCHTOWR_PLATFORM_HOST=https://your-tenant.your-region.watchtowr.io",
+        "--env-file", "/path/to/watchtowr-mcp/.env",
         "watchtowr-mcp"
       ]
     }
@@ -145,14 +152,87 @@ docker run -d --rm \
 }
 ```
 
+### HTTP (streamable-http)
+
+> Start the server first — see [HTTP — standalone service](#http--standalone-service).
+
+In HTTP mode the MCP client sends the API key with each request, so the key has to be available to the client. Export `WATCHTOWR_API_KEY` in the shell that starts the client and reference it, so the key stays out of the config file.
+
+Claude Code (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "watchtowr": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer ${WATCHTOWR_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Cursor (`.cursor/mcp.json`) uses the same config, with `${env:WATCHTOWR_API_KEY}` in place of `${WATCHTOWR_API_KEY}`.
+
+Claude Desktop only launches local commands, so bridge to the HTTP server with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (requires Node.js). Claude Desktop cannot read the key from your shell, so in this setup the key has to live in its config file. It goes through `env` because some platforms split an argument containing a space:
+
+```json
+{
+  "mcpServers": {
+    "watchtowr": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:8080/mcp", "--header", "Authorization:${WATCHTOWR_AUTH}"],
+      "env": {
+        "WATCHTOWR_AUTH": "Bearer your-api-key"
+      }
+    }
+  }
+}
+```
+
 ## Configuration
+
+Set these in `.env`, starting from `.env.example`. Every setup above passes the file to the server with `--env-file`.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `WATCHTOWR_API_KEY` | Yes | Your watchTowr Platform API key |
-| `WATCHTOWR_PLATFORM_HOST` | Yes | Your watchTowr Platform instance URL |
+| `WATCHTOWR_API_KEY` | stdio only | Your watchTowr Platform API key. Ignored in `streamable-http` mode, where each request sends its own key as `Authorization: Bearer <api-key>` |
+| `WATCHTOWR_PLATFORM_HOST` | Yes | Your watchTowr Platform instance URL. The portal is served from the same host, so tools also use it to print links that open findings, assets, hunts, vulnerabilities, adversaries, compromised endpoints and business units in the portal |
 | `MCP_TRANSPORT` | No | Transport mode: `stdio` (default) or `streamable-http` |
+| `MCP_HOST` | No | HTTP bind address (default: `127.0.0.1`; `0.0.0.0` in the Docker image). A non-loopback value logs a warning at startup |
 | `PORT` | No | HTTP port when using `streamable-http` transport (default: `8080`) |
+| `MCP_ALLOWED_HOSTS` | No | Comma-separated allowed `Host` header values; `name:*` matches any port (default: `127.0.0.1`, `localhost`, `[::1]`, any port) |
+| `MCP_ALLOWED_ORIGINS` | No | Comma-separated allowed `Origin` header values; `scheme://name:*` matches any port (default: `http://127.0.0.1:*`, `http://localhost:*`, `http://[::1]:*`). Requests without an `Origin` are allowed |
+| `WATCHTOWR_MCP_READ_ONLY` | No | Set to `true`, `1` or `yes` (case-insensitive) to run in [read-only mode](#read-only-mode). Off when unset, empty, `false`, `0` or `no`; any other value turns it on |
+| `WATCHTOWR_MCP_REQUEST_TIMEOUT` | No | Seconds the watchTowr Platform may stay silent during a request before the tool returns a timeout error (default: `30`, at most `600`). It limits each wait for data, not the whole request: a response that keeps arriving slowly can take longer. Once a request in a tool call times out, can't connect or is rate limited, the rest of that call's requests are skipped and reported as incomplete |
+
+### API key handling
+
+- In stdio mode, keep the API key in `.env` only. Don't put it in your MCP client's config file, a chat or a screenshot. With `--env-file`, the key is not written into the client config and not shown in the process list. In HTTP mode the client sends the key instead, see [HTTP (streamable-http)](#http-streamable-http).
+- Configs that set `WATCHTOWR_API_KEY` and `WATCHTOWR_PLATFORM_HOST` in the client's `env` block, on the command line or with `docker run -e` still work. The server reads the same variables however they are set; moving them to `.env` only keeps the key out of those places.
+- Git ignores `.env`. `chmod 600 .env` stops other users on the machine from reading it.
+- To rotate the key, change it in `.env` and restart your MCP client.
+- Leave `MCP_TRANSPORT` and `PORT` out of `.env` when an MCP client starts the server: clients talk to it over stdio. Set them only when you run the [HTTP service](#http--standalone-service) yourself.
+
+### Read-only mode
+
+With `WATCHTOWR_MCP_READ_ONLY` set to `true`, `1` or `yes`, the server never changes anything on the watchTowr Platform. Unset, empty, `false`, `0` or `no` leaves every tool available. Any other value also turns read-only mode on, so a mistyped value never leaves write tools enabled, and is logged as a warning at startup.
+
+- **Every non-GET request is refused.** The API client rejects any POST, PUT, PATCH or DELETE before it is sent, so no tool can write, whatever the model calls.
+- **Write-only tools are hidden** from the tool list: `update_finding_status`, `retest_finding`, `update_finding_state`, `bulk_retest_findings`, `bulk_update_finding_status`, `set_asset_criticality`, `manage_asset_business_units`, `update_asset_status`, `add_seed_asset`.
+- **Read/write tools stay listed but only read**: `manage_engine_settings` (`get`), `manage_asset_custom_property` (`list`) and `manage_asset_notes` (`list`). Any other valid action returns an error naming `WATCHTOWR_MCP_READ_ONLY`.
+
+## Request Headers
+
+Every request the server makes to the watchTowr Platform API identifies the MCP server, the tool and the MCP client:
+
+- `User-Agent: watchtowr-mcp/<version>` — the installed package version.
+- `X-Watchtowr-MCP-Tool: <tool name>` — the tool that made the request. Omitted outside a tool call.
+- `X-Watchtowr-MCP-Client: <name>/<version>` — the `clientInfo` your MCP client sent when it connected, over stdio only. Always omitted over `streamable-http`, because this server runs that transport stateless and keeps no client info after `initialize`. Also omitted when the client sent none, when its name or version is not printable ASCII, or when `<name>/<version>` is longer than 256 characters.
+
+These headers carry no API key, tool arguments or other secrets; the API key is only ever sent in the `Authorization` header.
 
 ## Available Tools
 
@@ -238,7 +318,7 @@ docker run -d --rm \
 | `get_expiring_certificates` | List certificates expiring within N days |
 | `search_pending_domains` | Search pending domains awaiting verification or discovery processing |
 
-### Intelligence (8 tools)
+### Intelligence (11 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -246,11 +326,9 @@ docker run -d --rm \
 | `get_vulnerability_intelligence_details` | Get full details for a CVE/vulnerability |
 | `list_adversary_intelligence` | List adversary/threat actor profiles |
 | `get_adversary_intelligence_details` | Get full details for a threat actor |
-<!-- 
-  | `list_compromised_endpoints` | List compromised endpoints from stealer logs |
-  | `get_compromised_endpoint_credentials` | List harvested credentials for an endpoint |
-  | `list_credential_attempt_logs` | List credential stuffing attempt logs |
--->
+| `list_compromised_endpoints` | List compromised endpoints from stealer logs |
+| `get_compromised_endpoint_credentials` | List harvested credentials for an endpoint |
+| `list_credential_attempt_logs` | List credential stuffing attempt logs |
 | `list_finding_retest_history` | List retest history across all findings |
 | `get_finding_retest_history_details` | Get retest history for a specific finding |
 | `search_active_defense_library` | Search active defense library rules by name, capability, or technique |
@@ -299,7 +377,7 @@ docker run -d --rm \
 | `get_out_of_scope_assets` | All assets marked as out of scope or excluded |
 | `get_verified_vs_unverified_assets` | Asset verification status breakdown across all types |
 | `get_finding_age_distribution` | Findings bucketed by age (0-7d, 7-30d, 30-90d, 90d+) and severity |
-| `get_finding_status_timeline` | Opened vs remediated findings per week |
+| `get_finding_status_timeline` | Opened vs remediated findings per week (remediations placed by last update) |
 | `get_open_ports_summary` | Most common open ports with service counts |
 | `get_assets_without_findings` | Asset types with assets but zero findings — coverage gaps |
 | `get_certificate_health_report` | Certificates grouped by health: expired, expiring, valid |
@@ -322,10 +400,10 @@ docker run -d --rm \
 
 | Tool | Description |
 |------|-------------|
-| `get_recent_remediations` | Findings remediated within the last N days |
+| `get_recent_remediations` | Remediated findings last updated within the last N days (no remediation-date filter) |
 | `get_daily_digest` | 24-hour digest: new assets, new findings, activity log |
-| `bulk_retest_findings` | Trigger retests for multiple findings at once |
-| `bulk_update_finding_status` | Update the status of multiple findings at once |
+| `bulk_retest_findings` | Trigger retests for multiple findings at once (max 25 IDs per call) |
+| `bulk_update_finding_status` | Update the status of multiple findings at once (max 25 IDs per call) |
 | `get_actionable_findings_queue` | Prioritized queue of open findings by severity and age |
 | `get_findings_needing_assignment` | Unassigned open findings grouped by severity — triage inbox |
 
@@ -361,6 +439,8 @@ watchtowr-mcp/
 │   ├── __init__.py
 │   ├── mcp.py                 # Entry point
 │   ├── client.py              # API client and shared helpers
+│   ├── middleware.py          # Sets the tool and MCP client request headers
+│   ├── http_security.py       # streamable-http Host/Origin checks + bearer auth
 │   └── tools/
 │       ├── __init__.py        # Tool registration
 │       ├── findings.py        # Finding tools
@@ -383,17 +463,17 @@ watchtowr-mcp/
 A two-layer test suite lives under `test/` — see `test/README.md` for details.
 
 - **Unit tests** (offline, no credentials): verify every SDK method the server imports actually exists, that `README.md` stays in sync with the `@mcp.tool()` registry, and that `sdk_compat` patches apply cleanly.
-- **Integration tests** (live tenant): one test per tool across all 104 tools. Auto-skipped when `WATCHTOWR_API_KEY` / `WATCHTOWR_PLATFORM_HOST` are absent. Mutating tools are gated behind a separate `--run-writes` flag.
+- **Integration tests** (live tenant): one test per tool across all 116 tools. Auto-skipped when `WATCHTOWR_API_KEY` / `WATCHTOWR_PLATFORM_HOST` are absent. Mutating tools are gated behind a separate `--run-writes` flag.
 
 ```bash
 # Offline checks
 uv run pytest test/unit
 
 # Full read-only sweep against a tenant
-WATCHTOWR_API_KEY=... WATCHTOWR_PLATFORM_HOST=... uv run pytest test/integration -m live
+uv run --env-file .env pytest test/integration -m live
 
 # Include status flips, retests, seed asset submission
-WATCHTOWR_API_KEY=... WATCHTOWR_PLATFORM_HOST=... uv run pytest test/integration -m live --run-writes
+uv run --env-file .env pytest test/integration -m live --run-writes
 ```
 
 ## Support

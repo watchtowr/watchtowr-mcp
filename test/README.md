@@ -2,8 +2,8 @@
 
 Two layers covering the watchtowr-mcp server:
 
-- **Unit (`test/unit/`)** — 77 tests, no network, no credentials. Static checks that prove the SDK surface the MCP server imports actually exists, the `README.md` tool tables stay in lockstep with the `@mcp.tool()` registry, and the runtime patches in `sdk_compat.py` apply cleanly to real payload shapes.
-- **Integration (`test/integration/`)** — 91 tests, one per documented MCP tool (88 tools; a few are parametrised). Calls every tool against a live watchTowr tenant and asserts the response is non-error. Skipped automatically when credentials are absent.
+- **Unit (`test/unit/`)** — no network, no credentials. Static checks that prove the SDK surface the MCP server imports actually exists and accepts the keyword arguments the tools pass, the `README.md` tool tables stay in lockstep with the `@mcp.tool()` registry, the runtime patches in `sdk_compat.py` apply cleanly to real payload shapes, and every tool reaches the SDK transport when called offline with minimal arguments.
+- **Integration (`test/integration/`)** — roughly one test per documented MCP tool. Calls every tool against a live watchTowr tenant and asserts the response is non-error. Skipped automatically when credentials are absent.
 
 ## Prerequisites
 
@@ -25,13 +25,13 @@ Two layers covering the watchtowr-mcp server:
 uv run pytest test/unit
 ```
 
-Should always pass on any branch. If `test/unit/test_readme_sync.py` fails, the `README.md` tool tables have drifted from `watchtowr_mcp_server/tools/*.py` — the failure message names the divergent tool. If `test_sdk_surface.py` fails, an upstream SDK rename/removal has broken a call site in the MCP server.
+Should always pass on any branch. If `test/unit/test_readme_sync.py` fails, the `README.md` tool tables have drifted from `watchtowr_mcp_server/tools/*.py` — the failure message names the divergent tool. If `test_sdk_surface.py` fails, an upstream SDK rename/removal has broken a call site in the MCP server, or a tool passes a keyword the SDK method no longer accepts. If `test_tool_error_path.py` fails, a tool raised before reaching the SDK transport (typically a missing import or a stale keyword) — the failure message shows the tool's error string.
 
 ### Live read-only sweep across all tools
 
 ```bash
 WATCHTOWR_API_KEY="your-api-key" \
-WATCHTOWR_PLATFORM_HOST="https://your-tenant.your-region.watchtowr.io" \
+WATCHTOWR_PLATFORM_HOST="https://your-tenant.your-region.client.watchtowr.io" \
   uv run pytest test/integration -m live -v
 ```
 
@@ -44,7 +44,7 @@ WATCHTOWR_API_KEY=... WATCHTOWR_PLATFORM_HOST=... \
   uv run pytest test/integration -m live --run-writes
 ```
 
-The `--run-writes` flag opts into 6 additional tests across `test_findings.py`, `test_assets_writes.py`, and `test_workflow.py`. These either round-trip a value (set status to its current value) or submit a clearly-marked test asset under `.invalid` so it never resolves.
+The `--run-writes` flag opts into the write-marked tests across `test_findings.py`, `test_assets_writes.py`, and `test_workflow.py`. These either round-trip a value (set status to its current value) or submit a clearly-marked test asset under `.invalid` so it never resolves.
 
 ### Run a single file or test
 
@@ -72,22 +72,29 @@ test/
 ├── README.md                       ← you are here
 ├── conftest.py                     ← shared fixtures + --run-writes wiring
 ├── unit/
-│   ├── test_sdk_surface.py         ← parametrised: every (Api class, method) the MCP imports
+│   ├── conftest.py                 ← keeps WATCHTOWR_MCP_READ_ONLY off unless a test turns it on
+│   ├── test_sdk_surface.py         ← every (Api class, method, kwargs) the MCP calls resolves against the SDK
 │   ├── test_readme_sync.py         ← parses README tables vs ast-walks tools/*.py
-│   └── test_sdk_compat.py          ← exercises FindingRetestResponseDtoCompat + patched models
+│   ├── test_sdk_compat.py          ← exercises FindingRetestResponseDtoCompat + patched models
+│   ├── test_tool_error_path.py     ← calls every tool with a sentinel transport; no network
+│   ├── test_request_headers.py     ← User-Agent, tool and MCP client headers on SDK requests
+│   └── test_read_only_mode.py      ← WATCHTOWR_MCP_READ_ONLY: non-GET refused, write tools hidden
 └── integration/
     ├── _helpers.py                 ← assert_ok() shared assertion
-    ├── test_findings.py            ← 10 tools (8 reads + 2 writes, list-by-severity parametrised ×4)
-    ├── test_assets_reads.py        ← 22 read tools across 10 asset types
+    ├── test_findings.py            ← findings reads + writes (list-by-severity parametrised)
+    ├── test_assets_reads.py        ← read tools across every asset type
     ├── test_assets_writes.py       ← update_asset_status, add_seed_asset (write-gated)
-    ├── test_hunts.py               ← 6 tools
-    ├── test_threat_intel.py        ← 6 tools
-    ├── test_services.py            ← 2 tools
-    ├── test_organization.py        ← 5 tools
-    ├── test_composite.py           ← 13 cross-cutting tools
-    ├── test_reporting.py           ← 11 reporting & compliance tools
-    ├── test_incident.py            ← 5 incident response tools
-    └── test_workflow.py            ← 6 tools (4 reads + 2 writes)
+    ├── test_hunts.py
+    ├── test_threat_intel.py
+    ├── test_services.py
+    ├── test_organization.py
+    ├── test_composite.py           ← cross-cutting tools
+    ├── test_reporting.py           ← reporting & compliance tools
+    ├── test_incident.py            ← incident response tools
+    ├── test_intelligence.py
+    ├── test_dns_records.py
+    ├── test_asset_changelog.py
+    └── test_workflow.py            ← workflow reads + writes
 ```
 
 ## Markers
@@ -95,7 +102,7 @@ test/
 | Marker | Purpose | Default behaviour |
 |--------|---------|-------------------|
 | `live` | needs `WATCHTOWR_API_KEY` + `WATCHTOWR_PLATFORM_HOST` | Auto-skip if env vars are missing. Applied to every integration test via module-level `pytestmark`. |
-| `write` | mutates tenant state | Always skipped unless `--run-writes` is passed. Applied per-test on the 6 mutating tests. |
+| `write` | mutates tenant state | Always skipped unless `--run-writes` is passed. Applied per-test on mutating tests. |
 
 Both markers are declared in `pyproject.toml` under `[tool.pytest.ini_options]` with `--strict-markers`, so typos like `@pytest.mark.lvie` fail collection instead of silently no-op.
 
@@ -110,7 +117,7 @@ Defined in `conftest.py`. All session-scoped so each one runs at most once per p
 | `call` | `Callable[[str, **kwargs], Any]` | Sugar over `tools`. `call("list_findings_by_severity", severity="Critical", page_size=5)` invokes the underlying function directly. |
 | `sample_<type>_id` | `int` | Real ID discovered by calling the matching `list_*` tool once and parsing the first `[ID:<n>]` out of the response. If the tenant has zero records of that type, the dependent test skips with a clear message — every other test continues. |
 
-The 15 `sample_*_id` fixtures: `sample_finding_id`, `sample_hunt_id`, `sample_bu_id`, `sample_domain_id`, `sample_subdomain_id`, `sample_ip_id`, `sample_port_id`, `sample_iprange_id`, `sample_cert_id`, `sample_cloud_storage_id`, `sample_repo_id`, `sample_container_id`, `sample_saas_id`, `sample_mobile_id`, `sample_susp_domain_id`.
+The `sample_*_id` fixtures include: `sample_finding_id`, `sample_hunt_id`, `sample_bu_id`, `sample_domain_id`, `sample_subdomain_id`, `sample_ip_id`, `sample_port_id`, `sample_iprange_id`, `sample_cert_id`, `sample_cloud_storage_id`, `sample_repo_id`, `sample_container_id`, `sample_saas_id`, `sample_mobile_id`, `sample_susp_domain_id`.
 
 ## How a test is structured
 
@@ -127,11 +134,10 @@ def test_list_findings_by_severity(live_env, call):
               allow_empty=True)
 ```
 
-`assert_ok` (in `integration/_helpers.py`) does three things:
+`assert_ok` (in `integration/_helpers.py`) does two things (a failing tool raises `ToolError`, which fails the test before `assert_ok` runs):
 
 1. Asserts the response is non-`None`.
-2. Asserts it doesn't start with `"Error"` — every MCP tool wraps its body in `try/except` and returns `f"Error … {e}"` on failure, so that prefix is the canonical failure signal.
-3. With `allow_empty=False` (the default) also asserts the response is non-empty. Pass `allow_empty=True` for tools that can legitimately return `"No X found."` against a sparsely-populated tenant.
+2. With `allow_empty=False` (the default) also asserts the response is non-empty. Pass `allow_empty=True` for tools that can legitimately return `"No X found."` against a sparsely-populated tenant.
 
 For tools that return binary (e.g. `export_finding_pdf`), `assert_ok` checks for non-zero `len()` instead.
 
@@ -141,13 +147,20 @@ When you add a new `@mcp.tool()` function:
 
 1. Document it in the matching table in the root `README.md`. If you skip this, `test/unit/test_readme_sync.py::test_readme_and_code_tool_sets_match` fails with the missing tool name.
 2. Bump the category heading count (`### Findings (10 tools)` → `(11 tools)`) — `test_category_tool_count_matches_readme_heading` enforces this.
-3. If the tool calls a new SDK method, append the `(module, class, method)` triple to `SDK_CALLS` in `test/unit/test_sdk_surface.py` and bump the `len(SDK_CALLS)` assertion. The `test_sdk_calls_match_source` meta-test AST-walks the MCP source and fails if you skip this — the failure message names the exact triple to add.
-4. Add a one-liner integration test:
+3. If the tool calls a new SDK method, append the `(module, class, method)` triple to `SDK_CALLS` in `test/unit/test_sdk_surface.py`. The `test_sdk_calls_match_source` meta-test AST-walks the MCP source and fails if you skip this — the failure message names the exact triple to add.
+4. If the tool validates its input before calling the SDK, add passing values to `REQUIRED_ARG_OVERRIDES` in `test/unit/test_tool_error_path.py` so the offline call reaches the transport.
+5. Add a one-liner integration test:
    ```python
    def test_my_new_tool(live_env, call):
        assert_ok(call("my_new_tool", page_size=5), allow_empty=True)
    ```
-5. If the new tool mutates state, mark it `@pytest.mark.write` and have it round-trip the value (set to current) so repeated runs don't drift tenant state.
+6. If the new tool mutates state, mark it `@pytest.mark.write` and have it round-trip the value (set to current) so repeated runs don't drift tenant state.
+
+## Known limitations
+
+- The live integration suite is not run in CI. CI has no tenant credentials, so anything only a real response can reveal (status-code drift such as a create endpoint moving from 200 to 201, payload shape changes, permission errors) is caught only by running `test/integration` by hand.
+- The offline tool test stops at the SDK transport. It proves each tool builds a valid SDK call, not that the tool formats a real response correctly. Per-tool happy-path tests with canned responses are not written.
+- `sdk_compat.py` patches the retest response model to allow null `completed_at` / `evidence`. The current SDK already declares both as optional, so the patch is redundant; removing it is a separate change that needs a live retest response to confirm.
 
 ## Troubleshooting
 
@@ -159,6 +172,6 @@ When you add a new `@mcp.tool()` function:
 
 **`test_get_*_details` skips with "no X in this tenant"** — the corresponding `list_*` tool returned zero records, so there's no real ID to fetch details for. Not a bug — the suite is designed to degrade gracefully against under-populated tenants. Seed the tenant with at least one of that asset type to exercise the test.
 
-**Live test fails with an `Error retrieving …` string** — `assert_ok` is reporting an error string the tool returned. The full error (HTTP status, server message) is in the response. Re-run with `-v` to see the full output.
+**Live test fails with `ToolError: Error retrieving …`** — the tool hit a platform error. The message has the HTTP status, the platform's error message and a hint. The SDK exception is deliberately not chained (`raise … from None`); call the SDK directly to see the full response body.
 
 **Write tests run when you didn't pass `--run-writes`** — they shouldn't. The gating is in `conftest.py::pytest_collection_modifyitems` and double-gated via the `@pytest.mark.write` marker. If you see this happen, check that you're using the pytest from the repo's venv (`uv run pytest`, not a globally-installed `pytest`).

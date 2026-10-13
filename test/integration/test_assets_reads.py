@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from ._helpers import assert_ok
 
@@ -31,9 +32,10 @@ def test_list_ports_for_ip_with_new_filters(live_env, call, sample_ip_id):
 
 def test_get_ip_port_details(live_env, call, sample_ip_id):
     # We need a port ID scoped to this IP. Pull one out of list_ports_for_ip.
-    response = call("list_ports_for_ip", ip_id=sample_ip_id, page_size=5)
-    if isinstance(response, str) and response.startswith("Error"):
-        pytest.skip(f"list_ports_for_ip errored: {response}")
+    try:
+        response = call("list_ports_for_ip", ip_id=sample_ip_id, page_size=5)
+    except ToolError as e:
+        pytest.skip(f"list_ports_for_ip errored: {e}")
     import re
     match = re.search(r"\[ID:(\d+)\]", response or "")
     if not match:

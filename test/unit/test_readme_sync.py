@@ -30,7 +30,7 @@ CATEGORY_MAP = {
     "Reporting & Compliance": (("reporting.py",), 12),
     "Incident Response": (("incident.py",), 5),
     "Workflow & Automation": (("workflow.py",), 6),
-    "Intelligence": (("intelligence.py",), 8),
+    "Intelligence": (("intelligence.py",), 11),
 }
 
 
@@ -101,7 +101,10 @@ def test_category_tool_count_matches_readme_heading(category, filenames, expecte
     )
 
 
-def test_total_tool_count_is_113():
-    """README.md line 7 claims '113 tools'."""
+def test_total_tool_count_matches_readme_features():
+    claimed = re.search(r"\*\*(\d+) tools\*\*", README_PATH.read_text())
+    assert claimed, "README.md Features section no longer states the tool total"
     total = sum(len(_tool_names_in_files(fns)) for fns, _ in CATEGORY_MAP.values())
-    assert total == 113, f"Expected 113 tools across all categories, found {total}"
+    assert total == int(claimed.group(1)), (
+        f"README claims {claimed.group(1)} tools but the tool modules define {total}"
+    )

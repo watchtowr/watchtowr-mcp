@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import inspect
 from pathlib import Path
 
 import pytest
@@ -120,10 +121,10 @@ SDK_CALLS = [
     ("watchtowr_api_sdk.api.adversary_intelligence_api", "AdversaryIntelligenceApi", "get_list_adversary_intelligence"),
     ("watchtowr_api_sdk.api.adversary_intelligence_api", "AdversaryIntelligenceApi", "get_adversary_intelligence_details"),
     # Compromised Endpoints
-    # ("watchtowr_api_sdk.api.compromised_endpoints_api", "CompromisedEndpointsApi", "get_list_compromised_endpoints"),
-    # ("watchtowr_api_sdk.api.compromised_endpoints_api", "CompromisedEndpointsApi", "get_list_compromised_endpoint_harvested_credentials"),
+    ("watchtowr_api_sdk.api.compromised_endpoints_api", "CompromisedEndpointsApi", "get_list_compromised_endpoints"),
+    ("watchtowr_api_sdk.api.compromised_endpoints_api", "CompromisedEndpointsApi", "get_list_compromised_endpoint_harvested_credentials"),
     # Credential Attempt Logs
-    # ("watchtowr_api_sdk.api.credential_attempt_logs_api", "CredentialAttemptLogsApi", "get_list_credential_attempt_logs"),
+    ("watchtowr_api_sdk.api.credential_attempt_logs_api", "CredentialAttemptLogsApi", "get_list_credential_attempt_logs"),
     # Finding Retest History
     ("watchtowr_api_sdk.api.finding_retest_history_api", "FindingRetestHistoryApi", "get_list_finding_retest_history"),
     # DNS records
@@ -186,15 +187,6 @@ def test_sdk_model_resolves(module, cls):
 def test_sdk_infra_resolves(module, cls):
     mod = importlib.import_module(module)
     assert hasattr(mod, cls), f"{module}.{cls} missing — SDK drift"
-
-
-def test_sdk_call_count_matches_expectation():
-    """If this fails, the SDK_CALLS list and the MCP source have drifted."""
-    assert len(SDK_CALLS) == 85, (
-        "Expected 85 distinct SDK (class, method) call sites. Update both this "
-        "constant and SDK_CALLS when you add/remove an SDK call in the MCP tools."
-    )
-
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -349,3 +341,105 @@ def test_sdk_calls_match_source():
         for triple in sorted(stale_in_constant):
             msg_lines.append(f"  {triple!r},")
     assert not msg_lines, "\n" + "\n".join(msg_lines)
+
+
+class _SDKKwargsVisitor(ast.NodeVisitor):
+    def __init__(self, imported_api_classes: dict[str, str], path: Path):
+        self.imported = imported_api_classes
+        self.path = path
+        self.var_to_class: dict[str, str] = {}
+        self.dict_keys: dict[str, set[str]] = {}
+        self.calls: list[tuple[str, str, str, frozenset[str], int]] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        saved = (self.var_to_class, self.dict_keys)
+        self.var_to_class, self.dict_keys = dict(self.var_to_class), {}
+        self.generic_visit(node)
+        self.var_to_class, self.dict_keys = saved
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        value = node.value
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id in self.imported:
+                    self.var_to_class[target.id] = value.func.id
+                elif isinstance(value, ast.Dict):
+                    self.dict_keys[target.id] = {
+                        k.value for k in value.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)
+                    }
+            elif (
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Name)
+                and isinstance(target.slice, ast.Constant)
+                and isinstance(target.slice.value, str)
+            ):
+                self.dict_keys.setdefault(target.value.id, set()).add(target.slice.value)
+        self.generic_visit(node)
+
+    def _api_class_of(self, node: ast.expr) -> str | None:
+        if isinstance(node, ast.Name):
+            return self.var_to_class.get(node.id)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in self.imported:
+            return node.func.id
+        return None
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if isinstance(node.func, ast.Attribute):
+            cls = self._api_class_of(node.func.value)
+            if cls:
+                names: set[str] = set()
+                for kw in node.keywords:
+                    if kw.arg is not None:
+                        names.add(kw.arg)
+                    elif isinstance(kw.value, ast.Name):
+                        names |= self.dict_keys.get(kw.value.id, set())
+                if names:
+                    self.calls.append((self.imported[cls], cls, node.func.attr, frozenset(names), node.lineno))
+        self.generic_visit(node)
+
+
+def _discover_sdk_kwargs() -> list[tuple[Path, str, str, str, frozenset[str], int]]:
+    found = []
+    for path in _collect_python_files():
+        tree = ast.parse(path.read_text(), filename=str(path))
+        imported = _collect_imports(tree)
+        if not imported:
+            continue
+        visitor = _SDKKwargsVisitor(imported, path)
+        visitor.visit(tree)
+        found.extend((path, *call) for call in visitor.calls)
+    return found
+
+
+def test_sdk_kwargs_match_signatures():
+    problems = []
+    for path, module, cls, method, names, lineno in _discover_sdk_kwargs():
+        api_class = getattr(importlib.import_module(module), cls, None)
+        target = getattr(api_class, method, None)
+        if target is None:
+            continue
+        params = inspect.signature(target).parameters
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            continue
+        unknown = sorted(names - set(params))
+        if unknown:
+            problems.append(f"{path.relative_to(REPO_ROOT)}:{lineno} {cls}.{method} does not accept {unknown}")
+    assert not problems, "SDK drift: keyword(s) no longer accepted\n" + "\n".join(problems)
+
+
+def test_every_constructed_api_class_is_imported():
+    problems = []
+    for path in _collect_python_files():
+        tree = ast.parse(path.read_text(), filename=str(path))
+        imported = _collect_imports(tree)
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id.endswith("Api")
+                and node.func.id not in imported
+            ):
+                problems.append(f"{path.relative_to(REPO_ROOT)}:{node.lineno} {node.func.id}")
+    assert not problems, "Api class used without an import:\n" + "\n".join(problems)
