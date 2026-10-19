@@ -1,0 +1,30 @@
+{
+  "api": "HuntsApi",
+  "method": "show_the_detail_hunt",
+  "kwargs": {
+    "id": 105
+  },
+  "response": {
+    "data": {
+      "id": 105,
+      "type": "proactive",
+      "created_at": "2026-01-12T10:42:29.000Z",
+      "updated_at": "2026-01-12T10:42:29.000Z",
+      "title": "Central 1 + CVE",
+      "total_findings": 0,
+      "total_assets": 0,
+      "hunt_request_type": "Misconfig",
+      "rapid_exposure_mechanism": "impactLessPoc",
+      "description": "redacted-74",
+      "hypothesis": "test",
+      "references": [
+        null,
+        null
+      ],
+      "completed_at": null,
+      "completed_by": "redacted-7",
+      "requested_by": "redacted-75",
+      "status": "in-progress"
+    }
+  }
+}

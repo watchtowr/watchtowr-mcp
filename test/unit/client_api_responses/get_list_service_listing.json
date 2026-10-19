@@ -1,0 +1,79 @@
+{
+  "api": "ServiceDiscoveryApi",
+  "method": "get_list_service_listing",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 1310864,
+        "ip": null,
+        "portId": 1310864,
+        "ipId": null,
+        "port": 443,
+        "type": "TCP",
+        "source": "test domain asset (Seed Data)",
+        "service": "https",
+        "state": "open",
+        "banner": "banner-here",
+        "lastSeen": "2026-03-09T03:43:11.000Z",
+        "suppressedAt": null,
+        "suppressedById": null,
+        "isPermanentSuppression": false,
+        "findingId": null,
+        "hostname": "redacted-4",
+        "businessUnits": [
+          {
+            "id": 36,
+            "name": "redacted-3"
+          }
+        ],
+        "technologies": [],
+        "serviceTypes": [
+          {
+            "id": 11,
+            "name": "redacted-19"
+          }
+        ],
+        "isConcerning": true,
+        "suppressed": false
+      },
+      {
+        "id": 1310862,
+        "ip": "192.0.2.1",
+        "portId": 1310862,
+        "ipId": 148081,
+        "port": 2022,
+        "type": "TCP",
+        "country": "AU",
+        "source": "DNS Refresh (host2.example.com)",
+        "service": "ssh",
+        "state": "open",
+        "banner": "SSH-2.0-OpenSSH_8.9p1",
+        "lastSeen": "2026-02-13T10:11:00.000Z",
+        "suppressedAt": null,
+        "suppressedById": null,
+        "isPermanentSuppression": false,
+        "findingId": 184,
+        "hostname": null,
+        "businessUnits": [],
+        "technologies": [],
+        "serviceTypes": [],
+        "isConcerning": false,
+        "suppressed": false
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 655380,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 65538,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/service-listing/list?page=2"
+        }
+      }
+    }
+  }
+}

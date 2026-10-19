@@ -71,6 +71,39 @@ def test_401_hint_names_where_the_key_comes_from(monkeypatch, transport, hint):
         raise_tool_error("listing domains", _api_exception(401))
 
 
+def _unauthorized_body(message: str) -> str:
+    return json.dumps({"message": message, "error": "UNAUTHORIZED_REQUEST", "statusCode": 401})
+
+
+@pytest.mark.parametrize("transport", ["stdio", "streamable-http"])
+@pytest.mark.parametrize(
+    ("platform_message", "where"),
+    [
+        ("IP address is not whitelisted to access this API", "to the API Allow List on the Client API page"),
+        (
+            "Your IP address is not whitelisted to access this watchTowr Platform instance",
+            "on the Dashboard IP Whitelisting page",
+        ),
+    ],
+)
+def test_401_for_an_ip_not_on_an_allow_list_says_which_ip_to_add_and_where(monkeypatch, transport, platform_message, where):
+    monkeypatch.setenv("MCP_TRANSPORT", transport)
+    summary = api_error_summary(_api_exception(401, _unauthorized_body(platform_message)))
+    assert summary.startswith("HTTP 401 Reason - the IP address of the machine running this MCP server is not on the ")
+    assert summary.endswith(f"add that machine's public IP address {where}")
+    assert platform_message not in summary
+
+
+@pytest.mark.parametrize(
+    "platform_message",
+    ["WT Api Token", f"IP address is not whitelisted to access this API. {INJECTED_TEXT}", ""],
+)
+def test_other_401_messages_keep_the_api_key_hint_and_are_not_shown(monkeypatch, platform_message):
+    monkeypatch.setenv("MCP_TRANSPORT", "stdio")
+    summary = api_error_summary(_api_exception(401, _unauthorized_body(platform_message)))
+    assert summary == "HTTP 401 Reason - check WATCHTOWR_API_KEY"
+
+
 @pytest.mark.parametrize(
     "error",
     [

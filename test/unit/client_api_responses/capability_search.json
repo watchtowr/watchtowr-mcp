@@ -1,0 +1,51 @@
+{
+  "api": "CapabilitySearchApi",
+  "method": "capability_search",
+  "kwargs": {
+    "query": "apache"
+  },
+  "response": {
+    "data": {
+      "hunts": [],
+      "ttp_library": [
+        {
+          "id": 180671,
+          "name": "redacted-78",
+          "identifier": "CVE-2021-40438-wt",
+          "type": "ContinuousAssurance",
+          "category": {
+            "id": 108174,
+            "name": "redacted-79"
+          },
+          "module": "",
+          "enabled_on": "2024-04-01T01:51:37.000Z"
+        },
+        {
+          "id": 157127,
+          "name": "redacted-80",
+          "identifier": "CVE-2021-40438",
+          "type": "ContinuousAssurance",
+          "category": {
+            "id": 108174,
+            "name": "redacted-79"
+          },
+          "module": "module-continuousassurance-cisa-kev-ip-backend-nessus",
+          "enabled_on": "2024-04-01T01:51:37.000Z"
+        }
+      ]
+    },
+    "meta": {
+      "pagination": {
+        "count": 0,
+        "total": 0,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 0,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

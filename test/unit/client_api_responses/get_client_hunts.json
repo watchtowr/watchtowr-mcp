@@ -1,0 +1,46 @@
+{
+  "api": "HuntsApi",
+  "method": "get_client_hunts",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 105,
+        "type": "proactive",
+        "created_at": "2026-01-12T10:42:29.000Z",
+        "updated_at": "2026-01-12T10:42:29.000Z",
+        "hunt_request_type": "Misconfig",
+        "title": "Central 1 + CVE",
+        "total_findings": 0,
+        "total_assets": 0,
+        "status": "in-progress",
+        "rapid_exposure_mechanism": "impactLessPoc"
+      },
+      {
+        "id": 103,
+        "type": "proactive",
+        "created_at": "2026-01-12T04:50:14.000Z",
+        "updated_at": "2026-01-12T05:10:43.000Z",
+        "hunt_request_type": "Misconfig",
+        "title": "Hunt A 12/01/26",
+        "total_findings": 0,
+        "total_assets": 0,
+        "status": "completed",
+        "rapid_exposure_mechanism": "impactLessPoc"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 90,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 9,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/hunts/list?page=2"
+        }
+      }
+    }
+  }
+}

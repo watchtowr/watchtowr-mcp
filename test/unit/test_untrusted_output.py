@@ -147,6 +147,30 @@ FENCED_OUTPUTS = [
         ["name"],
     ),
     (
+        "list_assets_by_hunt", {"hunt_id": 1},
+        {(HuntsApi, "get_list_asset_by_hunt"): _list(name=s("name"), type="mobileApp", status="verified")},
+        ["name"],
+    ),
+    (
+        "list_assets_by_hunt", {"hunt_id": 1},
+        {(HuntsApi, "get_list_asset_by_hunt"): _list(name=s("name"), type="apiDocumentation", status="verified")},
+        ["name"],
+    ),
+    (
+        "list_assets_by_hunt", {"hunt_id": 1},
+        {(HuntsApi, "get_list_asset_by_hunt"): _list(name=s("name"), type="packageManager", status="verified")},
+        ["name"],
+    ),
+    (
+        "get_hunt_impact_summary", {"hunt_id": 1},
+        {
+            (HuntsApi, "show_the_detail_hunt"): _data(title="Hunt"),
+            (HuntsApi, "get_list_finding_by_hunt"): NS(data=[]),
+            (HuntsApi, "get_list_asset_by_hunt"): _list(name=s("name"), type="mobileApp"),
+        },
+        ["name"],
+    ),
+    (
         "get_finding_details", {"finding_id": 1},
         {(FindingsApi, "get_finding_details"): _data(id=1, affected={"data": {"type": "mobileApp", "id": 1, "name": s("name")}})},
         ["name"],
@@ -212,8 +236,10 @@ FENCED_OUTPUTS = [
     ),
     (
         "get_assets_by_technology", {"technology_search": "nginx"},
-        {(ServiceDiscoveryApi, "get_list_service_listing"): _list(ip="192.0.2.1", port=22, service=s("service"))},
-        ["service"],
+        {(ServiceDiscoveryApi, "get_list_service_listing"): _list(
+            ip="192.0.2.1", port=22, service=s("service"), technologies=[NS(display_name="nginx", version=s("version"))],
+        )},
+        ["service", "version"],
     ),
     (
         "get_open_ports_summary", {},

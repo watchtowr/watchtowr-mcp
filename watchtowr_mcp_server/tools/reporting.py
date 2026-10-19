@@ -5,8 +5,8 @@ from watchtowr_api_sdk.api.certificates_api import CertificatesApi
 from watchtowr_api_sdk.api.service_discovery_api import ServiceDiscoveryApi
 from watchtowr_api_sdk.api.security_posture_dashboard_api import SecurityPostureDashboardApi
 
-from ..client import accepts_argument, get_api_client, get_total, parse_date, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, utc_now
-from ..constants import MAX_TREND_WEEKS, REMEDIATION_DATE_CAVEAT, SUMMARY_SEVERITIES, VERIFIED_ASSET_STATUSES
+from ..client import accepts_argument, format_finding_ids, get_api_client, get_total, parse_date, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, utc_now
+from ..constants import MAX_TREND_WEEKS, OPEN_FINDINGS_FILTER, OPEN_FINDINGS_LABEL, READ_ONLY, REMEDIATION_DATE_CAVEAT, SUMMARY_SEVERITIES, VERIFIED_ASSET_STATUSES
 from ..failed_calls import PartialAnswer
 from .composite import _ASSET_API_MAP, ASSET_TYPES, _business_unit_details, _count, asset_list_link, asset_list_name
 
@@ -29,7 +29,7 @@ def register_reporting_tools(mcp):
 
     # ── Compliance & Audit ────────────────────────────────────────
 
-    @mcp.tool()
+    @mcp.tool(title="Get asset inventory by business unit", annotations=READ_ONLY)
     def get_asset_inventory_by_business_unit(business_unit_id: int) -> str:
         """Full asset inventory for a business unit with counts and sample assets per type.
 
@@ -79,7 +79,7 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("generating asset inventory", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get out-of-scope assets", annotations=READ_ONLY)
     def get_out_of_scope_assets() -> str:
         """List all assets marked as out of scope or incorrect identification across all types.
 
@@ -123,7 +123,7 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("retrieving out of scope assets", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get verified vs unverified assets", annotations=READ_ONLY)
     def get_verified_vs_unverified_assets() -> str:
         """Breakdown of asset verification status across all types (verified vs unverified counts)."""
         try:
@@ -162,9 +162,9 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("generating verification breakdown", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get finding age distribution", annotations=READ_ONLY)
     def get_finding_age_distribution() -> str:
-        """Bucket open findings by age (0-7d, 7-30d, 30-90d, 90d+) and severity."""
+        """Bucket open findings (Confirmed, critical to low) by age (0-7d, 7-30d, 30-90d, 90d+) and severity."""
         try:
             client = get_api_client()
             findings_api = FindingsApi(client)
@@ -178,10 +178,10 @@ def register_reporting_tools(mcp):
                 ("90+ days", None, now - timedelta(days=90)),
             ]
 
-            lines = ["Finding Age Distribution (Open/Unresolved):", ""]
+            lines = [f"Finding Age Distribution ({OPEN_FINDINGS_LABEL}):", ""]
 
             for label, created_from, created_to in buckets:
-                kwargs = {"statuses": "confirmed", "page_size": 1}
+                kwargs = {**OPEN_FINDINGS_FILTER, "page_size": 1}
                 if created_from and not created_to:
                     kwargs["created_from"] = created_from
                 elif created_to and not created_from:
@@ -212,9 +212,9 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("generating finding age distribution", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get finding status timeline", annotations=READ_ONLY)
     def get_finding_status_timeline(days: int = 30) -> str:
-        """Show how many findings were opened vs remediated per week over the last N days.
+        """Show how many critical-to-low findings were opened vs remediated per week over the last N days.
 
         Remediated findings are placed by their last update, because the platform has no remediation-date filter.
 
@@ -228,7 +228,7 @@ def register_reporting_tools(mcp):
             days = min(days, MAX_TREND_WEEKS * 7)
             parts = PartialAnswer("Finding status timeline")
 
-            lines = [f"Finding Status Timeline (Last {days} Days):", REMEDIATION_DATE_CAVEAT, ""]
+            lines = [f"Finding Status Timeline (Last {days} Days, critical to low):", REMEDIATION_DATE_CAVEAT, ""]
             weeks = max(1, days // 7)
 
             for w in range(weeks):
@@ -240,6 +240,7 @@ def register_reporting_tools(mcp):
                 with parts.part(f"{week_label} opened findings"):
                     new_count = _count(
                         findings_api, "get_list_findings",
+                        **OPEN_FINDINGS_FILTER,
                         created_from=week_start, created_to=week_end,
                     )
                     opened = f"+{new_count} opened"
@@ -248,7 +249,7 @@ def register_reporting_tools(mcp):
                 with parts.part(f"{week_label} remediated findings"):
                     remediated_count = _count(
                         findings_api, "get_list_findings",
-                        statuses="remediated",
+                        **{**OPEN_FINDINGS_FILTER, "statuses": "remediated"},
                         updated_from=week_start, updated_to=week_end,
                     )
                     remediated = f"{remediated_count} remediated"
@@ -263,7 +264,7 @@ def register_reporting_tools(mcp):
 
     # ── DevSecOps & Engineering ───────────────────────────────────
 
-    @mcp.tool()
+    @mcp.tool(title="Get open ports summary", annotations=READ_ONLY)
     def get_open_ports_summary(page_size: int = 30) -> str:
         """Summarize the most common open ports across the attack surface with counts.
 
@@ -290,7 +291,7 @@ def register_reporting_tools(mcp):
 
             sorted_ports = sorted(port_counts.items(), key=lambda x: x[1], reverse=True)
 
-            lines = [f"Open Ports Summary (sampled from {total or len(resp.data)} services):", ""]
+            lines = [f"Open Ports Summary (sampled from the first {len(resp.data)} of {total or len(resp.data)} services):", ""]
             for (port, service), count in sorted_ports:
                 svc_str = f" ({untrusted(service)})" if service else ""
                 lines.append(f"  • Port {port}{svc_str}: {count} services")
@@ -299,7 +300,7 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("generating open ports summary", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get assets without findings", annotations=READ_ONLY)
     def get_assets_without_findings() -> str:
         """List asset types that have assets but zero unresolved findings — potential coverage gaps."""
         try:
@@ -332,7 +333,7 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("checking assets without findings", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get certificate health report", annotations=READ_ONLY)
     def get_certificate_health_report() -> str:
         """Certificates grouped by health: expired, expiring within 7 days, expiring within 30 days, and valid."""
         try:
@@ -367,7 +368,7 @@ def register_reporting_tools(mcp):
 
     # ── Executive & Reporting ─────────────────────────────────────
 
-    @mcp.tool()
+    @mcp.tool(title="Get executive risk scorecard", annotations=READ_ONLY)
     def get_executive_risk_scorecard() -> str:
         """Single-call executive risk dashboard: total assets, findings by severity, CISA-KEV, mean finding age, expiring certs, and newest finding."""
         try:
@@ -384,22 +385,22 @@ def register_reporting_tools(mcp):
                     total_assets += _count(api_cls(client), method_name)
             lines.append(f"Total Assets: {parts.total(total_assets, 0)}")
 
-            lines.append("\nFindings:")
+            lines.append(f"\nFindings ({OPEN_FINDINGS_LABEL}):")
             total_findings = 0
             failures_before_findings = parts.failure_count()
             for sev in SUMMARY_SEVERITIES:
                 with parts.part(f"{severity_display(sev)} findings"):
-                    c = _count(findings_api, "get_list_findings", severities=sev, statuses="confirmed")
+                    c = _count(findings_api, "get_list_findings", **{**OPEN_FINDINGS_FILTER, "severities": sev})
                     total_findings += c
                     lines.append(f"  • {severity_display(sev)}: {c}")
             lines.append(f"  Total Open: {parts.total(total_findings, failures_before_findings)}")
 
             with parts.part("CISA-KEV findings"):
-                kev = _count(findings_api, "get_list_findings", tags="CISA-KEV", statuses="confirmed")
+                kev = _count(findings_api, "get_list_findings", tags="CISA-KEV", **OPEN_FINDINGS_FILTER)
                 lines.append(f"\nCISA-KEV (Open): {kev}")
 
             with parts.part("Mean finding age"):
-                resp = findings_api.get_list_findings(statuses="confirmed", page_size=30)
+                resp = findings_api.get_list_findings(**OPEN_FINDINGS_FILTER, page_size=30)
                 if hasattr(resp, 'data') and resp.data:
                     ages = []
                     for f in resp.data:
@@ -415,7 +416,9 @@ def register_reporting_tools(mcp):
                     if ages:
                         avg_age = sum(ages) // len(ages)
                         max_age = max(ages)
-                        lines.append(f"Mean Finding Age: {avg_age} days (oldest: {max_age} days)")
+                        sampled = len(resp.data)
+                        scope = f" ({sampled} newest open findings)" if (get_total(resp) or 0) > sampled else ""
+                        lines.append(f"Mean Finding Age{scope}: {avg_age} days (oldest: {max_age} days)")
 
             with parts.part("Expiring certificates"):
                 now = utc_now()
@@ -429,9 +432,9 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("generating executive risk scorecard", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get week-over-week delta", annotations=READ_ONLY)
     def get_week_over_week_delta(weeks: int = 4) -> str:
-        """Weekly trend report: new assets and new findings per week.
+        """Weekly trend report: new assets and new open findings (Confirmed, critical to low) per week.
 
         Args:
             weeks: Number of weeks to include (default 4, max 8).
@@ -442,7 +445,7 @@ def register_reporting_tools(mcp):
             now = utc_now()
             weeks = min(weeks, MAX_TREND_WEEKS)
 
-            lines = [f"Week-over-Week Delta ({weeks} Weeks):", ""]
+            lines = [f"Week-over-Week Delta ({weeks} Weeks; findings: {OPEN_FINDINGS_LABEL}):", ""]
             parts = PartialAnswer("Week-over-week delta")
 
             for w in range(weeks):
@@ -454,6 +457,7 @@ def register_reporting_tools(mcp):
                 with parts.part(f"{label} findings"):
                     new_findings = _count(
                         findings_api, "get_list_findings",
+                        **OPEN_FINDINGS_FILTER,
                         created_from=week_start, created_to=week_end,
                     )
                     findings_part = f"{new_findings} new findings"
@@ -472,7 +476,7 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("generating week-over-week delta", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get security posture", annotations=READ_ONLY)
     def get_security_posture() -> str:
         """Get the security posture dashboard: required actions, hunts, attack surface resiliency and organization summary."""
         try:
@@ -535,9 +539,9 @@ def register_reporting_tools(mcp):
         except Exception as e:
             raise_tool_error("running get_security_posture", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get top findings by occurrence", annotations=READ_ONLY)
     def get_top_findings_by_occurrence(page_size: int = 30) -> str:
-        """Most frequently occurring finding titles across the attack surface — reveals systemic issues.
+        """Most frequently occurring open finding titles (Confirmed, critical to low) — reveals systemic issues.
 
         Args:
             page_size: Number of findings to sample (max 30).
@@ -547,12 +551,12 @@ def register_reporting_tools(mcp):
             findings_api = FindingsApi(client)
 
             resp = findings_api.get_list_findings(
-                statuses="confirmed",
+                **OPEN_FINDINGS_FILTER,
                 page_size=min(page_size, 30),
             )
 
             if not hasattr(resp, 'data') or not resp.data:
-                return "No open findings found."
+                return "No open critical-to-low findings found."
 
             total = get_total(resp)
             title_data = {}
@@ -560,14 +564,15 @@ def register_reporting_tools(mcp):
                 title = getattr(f, 'title', 'Unknown')
                 sev = severity_display(getattr(f, 'severity', None))
                 if title not in title_data:
-                    title_data[title] = {"count": 0, "severity": sev}
-                title_data[title]["count"] += 1
+                    title_data[title] = {"ids": [], "severity": sev}
+                title_data[title]["ids"].append(int(f.id))
 
-            sorted_titles = sorted(title_data.items(), key=lambda x: x[1]["count"], reverse=True)
+            sorted_titles = sorted(title_data.items(), key=lambda x: len(x[1]["ids"]), reverse=True)
 
-            lines = [f"Top Findings by Occurrence (sampled from {total or len(resp.data)} open findings):", ""]
+            lines = [f"Top Findings by Occurrence (sampled from the first {len(resp.data)} of {total or len(resp.data)} open findings; {OPEN_FINDINGS_LABEL}):", ""]
             for title, data in sorted_titles[:15]:
-                lines.append(f"  • ({data['count']}x) [{data['severity']}] {title}")
+                ids = data["ids"]
+                lines.append(f"  • ({len(ids)}x) [{data['severity']}] {title} — IDs: {format_finding_ids(ids)}")
 
             return "\n".join(lines)
         except Exception as e:

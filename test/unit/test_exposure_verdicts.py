@@ -26,13 +26,13 @@ EXPOSURE_TOOLS = {
     "list_vulnerability_intelligence": ExposureTool(
         {"search": "CVE-2023-27350"},
         r"/vulnerability-intelligence/list$",
-        lambda flag: page_of([{"vulnerabilityId": 1.0, "type": "CVE", "displayName": "CVE-2023-27350 example", **flag}]),
+        lambda flag: page_of([{"vulnerabilityId": 1, "type": "CVE", "displayName": "CVE-2023-27350 example", **flag}]),
     ),
     "get_vulnerability_intelligence_details": ExposureTool(
         {"identifier": "CVE-2023-27350"},
         r"/vulnerability-intelligence/show/",
         lambda flag: {"data": {
-            "vulnerabilityId": 1.0,
+            "vulnerabilityId": 1,
             "cveId": "CVE-2023-27350",
             "displayName": "CVE-2023-27350 example",
             "affectedKbEntryIds": [],
@@ -42,12 +42,12 @@ EXPOSURE_TOOLS = {
     "list_adversary_intelligence": ExposureTool(
         {"search": "Example Adversary"},
         r"/adversary-intelligence/list$",
-        lambda flag: page_of([{"attackerId": 1.0, "name": "Example Adversary", "type": "APT", **flag}]),
+        lambda flag: page_of([{"attackerId": 1, "name": "Example Adversary", "type": "APT", **flag}]),
     ),
     "get_adversary_intelligence_details": ExposureTool(
         {"attacker_id": 1},
         r"/adversary-intelligence/show/",
-        lambda flag: {"data": {"attackerId": 1.0, "name": "Example Adversary", "affectedKbEntryIds": [], **flag}},
+        lambda flag: {"data": {"attackerId": 1, "name": "Example Adversary", "affectedKbEntryIds": [], **flag}},
     ),
 }
 
@@ -59,9 +59,7 @@ FLAG_CASES = {
 }
 
 TOOLS_WHOSE_SDK_MODEL_REQUIRES_IS_AFFECTED = {
-    "get_vulnerability_intelligence_details",
     "list_adversary_intelligence",
-    "get_adversary_intelligence_details",
 }
 
 SCOPE_WORDING = {
@@ -222,7 +220,7 @@ def test_an_empty_page_is_not_called_untracked_unless_a_first_page_search_found_
 def test_scope_footer_is_left_out_when_no_entry_has_a_verdict(tools, fake_platform):
     fake_platform.route(
         r"/vulnerability-intelligence/list$",
-        JsonReply(page_of([{"vulnerabilityId": 1.0, "type": "CVE", "displayName": "CVE-2023-27350 example"}])),
+        JsonReply(page_of([{"vulnerabilityId": 1, "type": "CVE", "displayName": "CVE-2023-27350 example"}])),
     )
 
     answer = tools["list_vulnerability_intelligence"](search="CVE-2023-27350")
@@ -263,3 +261,11 @@ def test_server_instructions_name_every_verdict():
     assert "technology or version match" in instructions
     assert "does not track" in instructions
     assert 'Never say "not affected" in an exposure answer' in instructions
+
+
+def test_server_instructions_name_one_first_call_for_a_cve():
+    instructions = create_server().instructions or ""
+    _, call_first = instructions.split("Call first:")
+
+    assert "For a CVE, call search_findings with only cve first" in instructions
+    assert "CVE" not in call_first

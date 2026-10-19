@@ -1,0 +1,75 @@
+{
+  "api": "IPAddressesApi",
+  "method": "get_list_asset_ips",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "ip",
+        "source": "internal-status-endpoint",
+        "status": "verified",
+        "created_at": "2025-10-23T09:23:34.000Z",
+        "id": "148082",
+        "discovery_reason": "Manually tested via internal status endpoint",
+        "businessUnits": [
+          {
+            "id": 36,
+            "name": "redacted-3"
+          }
+        ],
+        "metadata": {},
+        "name": "redacted-22",
+        "country": "DE",
+        "live": false,
+        "criticality": null,
+        "customProperties": [],
+        "infrastructure": {},
+        "engineSettings": {
+          "adversarySightEnabled": true,
+          "dnsBruteforcingEnabled": true,
+          "automatedRedTeamingEnabled": true,
+          "intrusiveHttpChecksEnabled": false,
+          "credentialStuffingEnabled": true,
+          "rapidReactionEnabled": false
+        }
+      },
+      {
+        "type": "ip",
+        "source": "DNS Refresh (host2.example.com)",
+        "status": "verified",
+        "created_at": "2025-10-23T09:23:34.000Z",
+        "id": "148081",
+        "discovery_reason": "Discovered within DNS A record",
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-23",
+        "country": "AU",
+        "live": false,
+        "criticality": null,
+        "customProperties": [],
+        "infrastructure": {},
+        "engineSettings": {
+          "adversarySightEnabled": true,
+          "dnsBruteforcingEnabled": true,
+          "automatedRedTeamingEnabled": true,
+          "intrusiveHttpChecksEnabled": false,
+          "credentialStuffingEnabled": true,
+          "rapidReactionEnabled": false
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 131078,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 13108,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/assets/ip/list?page=2"
+        }
+      }
+    }
+  }
+}

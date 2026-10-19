@@ -243,7 +243,7 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 | `list_cisa_kev_findings` | List findings tagged as CISA Known Exploited Vulnerabilities |
 | `list_findings_by_severity` | List findings filtered by severity (Critical, High, Medium, Low) |
 | `get_finding_details` | Get full finding detail — description, evidence, CVSS, CVE, EPSS |
-| `search_findings` | Search with filters: title, severity, status, asset, assignee, tags, date range |
+| `search_findings` | Search with filters: title, severity, status, asset, assignee, tags, date range, CVE (with an exposure verdict) |
 | `update_finding_status` | Change the status of a finding |
 | `update_finding_state` | Update the handling state of a finding (Uninvestigated, In Progress, Completed) |
 | `retest_finding` | Trigger a retest to verify remediation |
@@ -299,12 +299,12 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 
 | Tool | Description |
 |------|-------------|
-| `list_recent_hunts` | List recent hunts with finding and asset counts |
+| `list_recent_hunts` | List recent hunts with finding and affected-asset counts |
 | `get_hunt_details` | Full hunt detail — description, hypothesis, references |
 | `list_findings_by_hunt` | List findings discovered by a specific hunt |
-| `list_assets_by_hunt` | List assets tested by a specific hunt |
+| `list_assets_by_hunt` | List affected assets watchTowr linked to a specific hunt |
 | `search_hunts` | Search hunts by keyword, status, type, priority, date |
-| `get_hunt_impact_summary` | Combined summary: detail, severity breakdown, assets tested |
+| `get_hunt_impact_summary` | Combined summary: detail, severity breakdown, affected assets |
 
 ### Threat Intelligence (7 tools)
 
@@ -332,7 +332,7 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 | `list_finding_retest_history` | List retest history across all findings |
 | `get_finding_retest_history_details` | Get retest history for a specific finding |
 | `search_active_defense_library` | Search active defense library rules by name, capability, or technique |
-| `search_capabilities` | Search watchTowr capabilities by keyword or category |
+| `search_capabilities` | Search hunts and TTP Library tactics by hunt title, CVE ID, or tactic name |
 
 ### Services (2 tools)
 
@@ -428,6 +428,26 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 "Give me the CISA-KEV remediation status"
 "Compare week-over-week changes for the last 4 weeks"
 ```
+
+## Troubleshooting
+
+### HTTP 401: IP address not on an allow list
+
+The watchTowr Platform can limit API access to listed IP addresses or ranges, in two places. A request has to pass both:
+
+- **Client API allow list**: the API Allow List on the Client API page (Integrations → Client API). It applies to API calls only.
+- **Dashboard IP whitelist**: the Dashboard IP Whitelisting page (Configure on the Dashboard IP Whitelist card of the Users page). It applies to the portal and to API calls.
+
+A request from an address that is not listed gets `HTTP 401`, and the tool error names the list to update.
+
+Add the public IP address of the **machine running the MCP server**, since that machine sends every request to the Platform:
+
+- **stdio**: the machine where your MCP client starts the server. With Docker, that is the Docker host.
+- **streamable-http**: the machine running the HTTP service, not the machines of the MCP clients that connect to it.
+
+Behind NAT, a VPN or a proxy, the Platform sees the address traffic leaves from, so add that address. To find it, open a "what is my IP" service from the machine running the MCP server, or ask whoever runs its network.
+
+This is not always the address the portal shows. "You are currently logged in from …" on the Dashboard IP Whitelisting page is the address of your browser, and it only matches when your browser and the MCP server reach the internet through the same address.
 
 ## Development
 

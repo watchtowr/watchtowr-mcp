@@ -1,0 +1,60 @@
+{
+  "api": "ActiveDefenseLibraryApi",
+  "method": "get_list_active_defense_library_rules",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 12,
+        "ruleName": "elgentos magento2-dev-mcp host19.example.com executeMagerun2Command os command injection",
+        "cveId": "CVE-2026-5603",
+        "wtId": 3489930,
+        "type": "cve",
+        "kevStatus": {
+          "cisa": false,
+          "vulncheck": false,
+          "watchtowr": false
+        },
+        "zeroDay": false,
+        "providers": [
+          "cloudflare",
+          "fastly"
+        ],
+        "createdAt": "2026-03-26T09:00:00Z",
+        "updatedAt": "2026-04-07T06:44:02.536194Z"
+      },
+      {
+        "id": 10,
+        "ruleName": "Apache Log4j2 JNDI features do not protect against attacker controlled LDAP and other JNDI related endpoints",
+        "cveId": "CVE-2021-44228",
+        "wtId": 3360392,
+        "type": "cve",
+        "kevStatus": {
+          "cisa": true,
+          "vulncheck": false,
+          "watchtowr": false
+        },
+        "zeroDay": false,
+        "providers": [
+          "aws_cfn",
+          "fastly"
+        ],
+        "createdAt": "2026-03-09T09:00:00Z",
+        "updatedAt": "2026-04-01T02:19:14.174284Z"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 13,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 2,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/active-defense-library/list?page=2"
+        }
+      }
+    }
+  }
+}

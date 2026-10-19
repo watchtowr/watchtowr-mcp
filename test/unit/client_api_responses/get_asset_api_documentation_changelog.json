@@ -1,0 +1,60 @@
+{
+  "api": "APIDocumentationApi",
+  "method": "get_asset_api_documentation_changelog",
+  "kwargs": {
+    "id": 9
+  },
+  "response": {
+    "data": [
+      {
+        "id": 190,
+        "description": "redacted-81",
+        "type": null,
+        "properties": {
+          "old": {
+            "prevS3Filename": "redacted-82",
+            "s3FileCategory": "redacted-83"
+          },
+          "attributes": {
+            "s3FileCategory": "redacted-83",
+            "currentS3Filename": "redacted-84"
+          }
+        },
+        "created_at": "2024-08-02T10:18:12.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      },
+      {
+        "id": 189,
+        "description": "redacted-81",
+        "type": null,
+        "properties": {
+          "attributes": {
+            "s3Filename": "redacted-82",
+            "s3FileCategory": "redacted-83"
+          }
+        },
+        "created_at": "2024-08-02T10:17:40.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 3,
+        "total": 3,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

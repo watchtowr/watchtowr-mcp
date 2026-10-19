@@ -1,0 +1,62 @@
+{
+  "api": "DomainsApi",
+  "method": "get_asset_domain_changelog",
+  "kwargs": {
+    "id": 109
+  },
+  "response": {
+    "data": [
+      {
+        "id": 576688,
+        "description": "redacted-86",
+        "type": "Asset Updated (favorites)",
+        "properties": {
+          "attributes": {
+            "action": "Added",
+            "assetId": 109,
+            "assetType": "domain"
+          }
+        },
+        "created_at": "2026-05-22T09:15:45.000Z",
+        "caused_by": {
+          "id": 54,
+          "name": "redacted-7"
+        }
+      },
+      {
+        "id": 576566,
+        "description": "redacted-87",
+        "type": "Add Asset",
+        "properties": {
+          "attributes": {
+            "port": 443,
+            "type": "TCP",
+            "ip_id": null,
+            "banner": "banner-here",
+            "service": "https",
+            "domainId": 109,
+            "subdomainId": null
+          }
+        },
+        "created_at": "2026-03-09T03:43:16.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 25,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 3,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/assets/domain/show/109.0/changelog?page=2"
+        }
+      }
+    }
+  }
+}

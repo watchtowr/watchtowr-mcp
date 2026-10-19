@@ -1,0 +1,143 @@
+{
+  "api": "FindingsApi",
+  "method": "get_list_findings",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 186,
+        "title": "Directory Listing Enabled",
+        "created_at": "2026-03-09T03:44:09.000Z",
+        "cvssv3_score": 0,
+        "cvssv3_metrics": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N/E:H/RL:O/RC:C",
+        "state": "In Progress",
+        "platform_url": "https://host1.example.com/findings/186",
+        "description": "redacted-1",
+        "impact": "If discovered by an attacker it may be possible to:\n\n* Identify sensitive files for download and further review\n* Identity technology in use\n* Identify paths to sensitive functionality for further review",
+        "finding_impact": "Prioritized Findings",
+        "tags": [],
+        "evidence": "redacted-2",
+        "recommendation": "It is recommended that directory listing be disabled on the affected host, and any sensitive files exposed be removed. If necessary, it is also recommeneded to review access logs for the exposed sensitive files to determine if there has been prior access.",
+        "references": "No references.",
+        "severity": "info",
+        "status": "confirmed",
+        "affected": {
+          "data": {
+            "type": "domain",
+            "source": "test domain asset (Seed Data)",
+            "status": "verified",
+            "created_at": "2025-07-22T03:47:19.000Z",
+            "id": "109",
+            "discovery_reason": "test",
+            "platform_url": "https://host1.example.com/assets/domain/109",
+            "businessUnits": [
+              {
+                "id": 36,
+                "name": "redacted-3"
+              }
+            ],
+            "metadata": {},
+            "name": "redacted-4",
+            "dns_records": [],
+            "criticality": null,
+            "customProperties": [],
+            "engineSettings": {
+              "adversarySightEnabled": true,
+              "dnsBruteforcingEnabled": true,
+              "automatedRedTeamingEnabled": true,
+              "intrusiveHttpChecksEnabled": false,
+              "credentialStuffingEnabled": true,
+              "rapidReactionEnabled": false
+            }
+          }
+        },
+        "cve_id": "CVE-2026-2304",
+        "epss_score": null,
+        "last_seen": null,
+        "retest": {
+          "retest_remaining": 999999,
+          "current_retest": null
+        },
+        "retest_history": [],
+        "assigned_user": null,
+        "last_status_updated_at": "2026-03-09T03:44:14.000Z",
+        "age": 221,
+        "criticality": null,
+        "customProperties": [],
+        "detection_rules": []
+      },
+      {
+        "id": 184,
+        "title": "Network Service Exposed to Internet - SSH",
+        "created_at": "2026-02-23T13:13:23.000Z",
+        "cvssv3_score": 5.1,
+        "cvssv3_metrics": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N/E:H/RL:O/RC:C",
+        "state": "In Progress",
+        "platform_url": "https://host1.example.com/findings/184",
+        "description": "redacted-5",
+        "impact": "A network service exposed to the Internet may allow external attackers to:\n\n* Identify and exploit known or zero-day vulnerabilities in the service\n* Conduct reconnaissance to enumerate services, versions, and network topology\n* Perform authentication-based attacks such as brute force or credential stuffing\n* Abuse insecure configurations, default credentials, or weak access controls\n\nDepending on the role and privilege of the exposed service, successful exploitation could result in unauthorized access, data exposure, lateral movement within the environment, or service disruption.",
+        "finding_impact": "Prioritized Findings",
+        "tags": [],
+        "evidence": "redacted-6",
+        "recommendation": "It is recommended to:\n\n* Review whether this service needs to be exposed to the Internet\n* If external access is not required, restrict access to internal networks only\n* If external access is necessary, implement network-level access controls (firewall rules, IP whitelisting)\n* Ensure the service is running the latest patched version\n* Implement strong authentication mechanisms\n* Consider deploying additional security controls such as VPN access or multi-factor authentication\n* Regularly monitor and audit access to this service",
+        "references": "No references.",
+        "severity": "medium",
+        "status": "confirmed",
+        "affected": {
+          "data": {
+            "type": "TCP",
+            "status": "verified",
+            "created_at": "2026-02-23T13:12:55.000Z",
+            "id": "1310862",
+            "platform_url": "https://host1.example.com/assets/ip/148081",
+            "businessUnits": [],
+            "metadata": {},
+            "ip": "192.0.2.1",
+            "ip_id": 148081,
+            "port": 2022,
+            "banner": "SSH-2.0-OpenSSH_8.9p1",
+            "service": "ssh",
+            "state": "open",
+            "last_seen_at": "2026-02-23T13:13:23.000Z"
+          }
+        },
+        "cve_id": null,
+        "epss_score": null,
+        "last_seen": null,
+        "retest": {
+          "retest_remaining": 999999,
+          "current_retest": null
+        },
+        "retest_history": [
+          {
+            "requested_by": "redacted-7",
+            "requested_at": "2026-08-11T10:48:48.000Z",
+            "retest_status": "error",
+            "completed_at": null
+          }
+        ],
+        "assigned_user": {
+          "name": "redacted-7"
+        },
+        "last_status_updated_at": "2026-02-23T13:13:28.000Z",
+        "age": 234,
+        "criticality": null,
+        "customProperties": [],
+        "detection_rules": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 47,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 5,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/findings/list?page=2"
+        }
+      }
+    }
+  }
+}

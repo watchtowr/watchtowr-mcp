@@ -1,0 +1,61 @@
+{
+  "api": "PackageManagersApi",
+  "method": "get_asset_package_manager_changelog",
+  "kwargs": {
+    "id": 4
+  },
+  "response": {
+    "data": [
+      {
+        "id": 576697,
+        "description": "redacted-94",
+        "type": "Asset Updated (favorites)",
+        "properties": {
+          "attributes": {
+            "action": "Added",
+            "assetId": 4,
+            "assetType": "packageManager"
+          }
+        },
+        "created_at": "2026-05-22T09:18:39.000Z",
+        "caused_by": {
+          "id": 54,
+          "name": "redacted-7"
+        }
+      },
+      {
+        "id": 574787,
+        "description": "redacted-95",
+        "type": "Asset Status Change",
+        "properties": {
+          "old": {
+            "status_name": "pending",
+            "status_reason": null
+          },
+          "attributes": {
+            "status_name": "verified",
+            "status_reason": "Seed data marked as verified by watchTowr staff."
+          }
+        },
+        "created_at": "2024-12-09T07:39:20.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 3,
+        "total": 3,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

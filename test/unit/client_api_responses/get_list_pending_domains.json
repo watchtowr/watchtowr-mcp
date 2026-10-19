@@ -1,0 +1,38 @@
+{
+  "api": "PendingDomainsApi",
+  "method": "get_list_pending_domains",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 103,
+        "status": "pending",
+        "name": "redacted-71",
+        "source": "module-continuousassurance-controller",
+        "created_at": "2024-06-02T22:01:32.000Z",
+        "whoisData": null
+      },
+      {
+        "id": 102,
+        "status": "pending",
+        "name": "redacted-72",
+        "source": "module-continuousassurance-controller",
+        "created_at": "2024-06-02T22:01:30.000Z",
+        "whoisData": null
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 56,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 6,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/pending-domains/list?page=2"
+        }
+      }
+    }
+  }
+}

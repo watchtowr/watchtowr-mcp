@@ -1,0 +1,93 @@
+{
+  "api": "DomainsApi",
+  "method": "get_asset_domain_details",
+  "kwargs": {
+    "id": 109
+  },
+  "response": {
+    "data": {
+      "type": "domain",
+      "source": "test domain asset (Seed Data)",
+      "status": "verified",
+      "created_at": "2025-07-22T03:47:19.000Z",
+      "id": "109",
+      "discovery_reason": "test",
+      "businessUnits": [
+        {
+          "id": 36,
+          "name": "redacted-3"
+        }
+      ],
+      "metadata": {},
+      "name": "redacted-4",
+      "live": true,
+      "whoisData": [
+        {
+          "id": 20,
+          "data": {
+            "asn": "redacted-98",
+            "nir": null,
+            "nets": [
+              {
+                "cidr": "192.0.2.2/18",
+                "city": "redacted-99",
+                "name": "redacted-24",
+                "range": "192.0.2.2 - 192.0.2.3",
+                "state": "CA",
+                "emails": [
+                  "user@example.com",
+                  "user@example.com"
+                ],
+                "handle": "redacted-100",
+                "address": "redacted-25",
+                "country": "US",
+                "created": "2012-11-20",
+                "updated": "2024-05-21",
+                "description": "redacted-26",
+                "postal_code": "redacted-101"
+              }
+            ],
+            "query": "192.0.2.4",
+            "asn_cidr": "192.0.2.5/24",
+            "asn_date": "2012-11-20",
+            "referral": null,
+            "asn_registry": "arin",
+            "raw_referral": null,
+            "asn_description": "redacted-27",
+            "asn_country_code": "US"
+          },
+          "raw": "redacted-28"
+        }
+      ],
+      "dns_records": [
+        {
+          "id": 1691,
+          "name": "redacted-4",
+          "type": "A",
+          "ttl": 3600,
+          "value": "192.0.2.1",
+          "discovered_on": "2025-10-23T09:23:34.000Z"
+        },
+        {
+          "id": 1692,
+          "name": "redacted-4",
+          "type": "A",
+          "ttl": 3600,
+          "value": "192.0.2.11",
+          "discovered_on": "2025-10-23T09:23:34.000Z"
+        }
+      ],
+      "criticality": null,
+      "customProperties": [],
+      "infrastructure": {},
+      "engineSettings": {
+        "adversarySightEnabled": true,
+        "dnsBruteforcingEnabled": true,
+        "automatedRedTeamingEnabled": true,
+        "intrusiveHttpChecksEnabled": false,
+        "credentialStuffingEnabled": true,
+        "rapidReactionEnabled": false
+      }
+    }
+  }
+}

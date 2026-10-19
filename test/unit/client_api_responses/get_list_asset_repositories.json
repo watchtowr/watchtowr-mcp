@@ -1,0 +1,52 @@
+{
+  "api": "RepositoriesApi",
+  "method": "get_list_asset_repositories",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "repository",
+        "source": "module-continuousassurance-controller",
+        "status": "Incorrect Identification",
+        "created_at": "2024-04-05T10:21:23.000Z",
+        "id": "4",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-36",
+        "owner": "redacted-37",
+        "provider": "unknown",
+        "criticality": null,
+        "customProperties": []
+      },
+      {
+        "type": "repository",
+        "source": "module-continuousassurance-controller",
+        "status": "Incorrect Identification",
+        "created_at": "2024-04-05T10:21:23.000Z",
+        "id": "3",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-38",
+        "owner": "redacted-37",
+        "provider": "bitbucket",
+        "criticality": null,
+        "customProperties": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 4,
+        "total": 4,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

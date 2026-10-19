@@ -1,0 +1,80 @@
+{
+  "api": "SecurityPostureDashboardApi",
+  "method": "get_security_posture_dashboard",
+  "kwargs": {},
+  "response": {
+    "data": {
+      "requiredActions": {
+        "activelyExploitedFindings": 3,
+        "unresolvedRapidReactionHunts": 2
+      },
+      "huntOverview": {
+        "totalHuntsExecuted": 51,
+        "totalUnresolvedHunts": 2,
+        "latestExecutedHunts": [
+          {
+            "id": "105",
+            "title": "Central 1 + CVE",
+            "status": "in-progress",
+            "totalFindings": 0,
+            "totalAssets": 0,
+            "needInvestigation": false,
+            "requestType": "Misconfig",
+            "resolvedStatus": false,
+            "acknowledgement": {
+              "isAcknowledged": false,
+              "numberOfSeen": 1
+            },
+            "threatActors": []
+          },
+          {
+            "id": "103",
+            "title": "Hunt A 12/01/26",
+            "status": "completed",
+            "totalFindings": 0,
+            "totalAssets": 0,
+            "needInvestigation": false,
+            "requestType": "Misconfig",
+            "resolvedStatus": false,
+            "acknowledgement": {
+              "isAcknowledged": false,
+              "numberOfSeen": 1
+            },
+            "threatActors": []
+          }
+        ]
+      },
+      "attackSurfaceResiliency": {
+        "concerningServices": 4,
+        "concerningPointsOfInterest": 0,
+        "validCredentials": 2,
+        "openFindings": 47
+      },
+      "organizationSummary": {
+        "attackSurface": {
+          "totalVerifiedAssets": 65651,
+          "totalPointsOfInterest": 0,
+          "totalNetworkServices": 655380,
+          "totalCertificates": 0
+        },
+        "openFindings": {
+          "critical": 2,
+          "high": 3,
+          "medium": 8,
+          "low": 9,
+          "info": 25,
+          "total": 47
+        },
+        "findingsSummary": {
+          "totalResolvedFindings": 2,
+          "oldCriticalHighFindings": 5,
+          "unacknowledgedCriticalHighFindings": 0
+        },
+        "mttrMetrics": {
+          "mttr": 0,
+          "mttrae": 0
+        }
+      }
+    }
+  }
+}

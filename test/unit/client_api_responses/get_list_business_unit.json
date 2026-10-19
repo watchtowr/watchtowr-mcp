@@ -1,0 +1,46 @@
+{
+  "api": "BusinessUnitApi",
+  "method": "get_list_business_unit",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 15,
+        "name": "redacted-8",
+        "description": "",
+        "type": "USER_DEFINED",
+        "user_ids": [
+          48,
+          24
+        ],
+        "created_at": "2024-05-21T02:14:10.000Z",
+        "updated_at": "2025-05-27T08:44:53.000Z"
+      },
+      {
+        "id": 16,
+        "name": "redacted-9",
+        "description": "",
+        "type": "USER_DEFINED",
+        "user_ids": [
+          43,
+          42
+        ],
+        "created_at": "2024-05-21T08:10:59.000Z",
+        "updated_at": "2024-06-11T05:56:56.000Z"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 7,
+        "total": 7,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

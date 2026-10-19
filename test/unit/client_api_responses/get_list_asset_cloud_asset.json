@@ -1,0 +1,65 @@
+{
+  "api": "CloudIntegrationAssetsApi",
+  "method": "get_list_asset_cloud_asset",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "cloudAsset",
+        "source": "AWS Console",
+        "status": "verified",
+        "created_at": "2024-06-07T10:47:49.000Z",
+        "id": "2",
+        "discovery_reason": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
+        "businessUnits": [],
+        "metadata": {
+          "region": "us-east-1",
+          "availabilityZone": "redacted-52"
+        },
+        "name": "redacted-53",
+        "provider": "aws",
+        "super_type": "Compute",
+        "sub_type": "ec2",
+        "hostname": "redacted-54",
+        "cloud_resource_id": "112233",
+        "criticality": null,
+        "customProperties": []
+      },
+      {
+        "type": "cloudAsset",
+        "source": "test-module-controller-1-0",
+        "status": "verified",
+        "created_at": "2024-06-05T02:31:28.000Z",
+        "id": "1",
+        "discovery_reason": "manual",
+        "businessUnits": [],
+        "metadata": {
+          "aa": "redacted-55",
+          "bb": "redacted-55",
+          "key1": "redacted-56"
+        },
+        "name": "redacted-57",
+        "provider": "aws",
+        "super_type": "compute",
+        "sub_type": "ec2",
+        "hostname": "redacted-58",
+        "cloud_resource_id": "res123",
+        "criticality": null,
+        "customProperties": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 2,
+        "total": 2,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

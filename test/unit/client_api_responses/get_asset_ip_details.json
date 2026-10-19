@@ -1,0 +1,65 @@
+{
+  "api": "IPAddressesApi",
+  "method": "get_asset_ip_details",
+  "kwargs": {
+    "id": 148082
+  },
+  "response": {
+    "data": {
+      "type": "ip",
+      "source": "internal-status-endpoint",
+      "status": "verified",
+      "created_at": "2025-10-23T09:23:34.000Z",
+      "id": "148082",
+      "discovery_reason": "Manually tested via internal status endpoint",
+      "businessUnits": [
+        {
+          "id": 36,
+          "name": "redacted-3"
+        }
+      ],
+      "metadata": {},
+      "name": "redacted-22",
+      "country": "DE",
+      "live": false,
+      "whoisData": [],
+      "dns_records": {
+        "dns_records_owned": [
+          {
+            "id": 1693,
+            "name": "redacted-22",
+            "type": "PTR",
+            "ttl": 300,
+            "value": "host18.example.com",
+            "discovered_on": "2025-10-23T09:23:36.000Z"
+          }
+        ],
+        "dns_records_pointing_at": [
+          {
+            "id": 1692,
+            "name": "redacted-4",
+            "type": "A",
+            "ttl": 3600,
+            "value": "192.0.2.11",
+            "discovered_on": "2025-10-23T09:23:34.000Z",
+            "asset": {
+              "id": 109,
+              "name": "redacted-4"
+            }
+          }
+        ]
+      },
+      "criticality": null,
+      "customProperties": [],
+      "infrastructure": {},
+      "engineSettings": {
+        "adversarySightEnabled": true,
+        "dnsBruteforcingEnabled": true,
+        "automatedRedTeamingEnabled": true,
+        "intrusiveHttpChecksEnabled": false,
+        "credentialStuffingEnabled": true,
+        "rapidReactionEnabled": false
+      }
+    }
+  }
+}

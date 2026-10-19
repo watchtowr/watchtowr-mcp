@@ -1,0 +1,70 @@
+{
+  "api": "PointsOfInterestApi",
+  "method": "get_list_points_of_interest",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 77,
+        "name": "redacted-45",
+        "type": "open-directory",
+        "url": "https://192.0.2.8:20000/affected/path/-long-long-long-long-long-long-long-long-long",
+        "discoveryDate": "2026-03-09T10:00:00.000Z",
+        "assetId": 109,
+        "assetName": "host2.example.com",
+        "assetType": "domain",
+        "businessUnits": [
+          {
+            "id": 36,
+            "name": "redacted-3"
+          }
+        ],
+        "lastSeen": "2026-03-09T10:00:00.000Z",
+        "isConcerning": false,
+        "suppressed": false,
+        "suppressedAt": null,
+        "isPermanentSuppression": false,
+        "findingId": 186
+      },
+      {
+        "id": 76,
+        "name": "redacted-46",
+        "type": "admin-panel",
+        "url": "https://api.example.com/auth",
+        "discoveryDate": "2025-04-06T14:30:00.000Z",
+        "assetId": 107,
+        "assetName": "host9.example.com",
+        "assetType": "domain",
+        "businessUnits": [
+          {
+            "id": 15,
+            "name": "redacted-8"
+          },
+          {
+            "id": 16,
+            "name": "redacted-9"
+          }
+        ],
+        "lastSeen": "2025-04-07T08:15:00.000Z",
+        "isConcerning": true,
+        "suppressed": false,
+        "suppressedAt": null,
+        "isPermanentSuppression": false,
+        "findingId": 92
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 43,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 5,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/points-of-interest/list?page=2"
+        }
+      }
+    }
+  }
+}

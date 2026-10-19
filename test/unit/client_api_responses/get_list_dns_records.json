@@ -1,0 +1,48 @@
+{
+  "api": "DNSRecordAnalysisApi",
+  "method": "get_list_dns_records",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 1693,
+        "asset": {
+          "id": 148082,
+          "name": "redacted-22",
+          "type": "ip"
+        },
+        "recordName": "host17.example.com",
+        "type": "PTR",
+        "ttl": 300,
+        "value": "host18.example.com",
+        "createdAt": "2025-10-23T09:23:36.000Z"
+      },
+      {
+        "id": 1692,
+        "asset": {
+          "id": 109,
+          "name": "redacted-4",
+          "type": "domain"
+        },
+        "recordName": "host2.example.com",
+        "type": "A",
+        "ttl": 3600,
+        "value": "192.0.2.11",
+        "createdAt": "2025-10-23T09:23:34.000Z"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 20,
+        "total": 33,
+        "per_page": 20,
+        "current_page": 1,
+        "total_pages": 2,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/dns-records/list?page=2"
+        }
+      }
+    }
+  }
+}

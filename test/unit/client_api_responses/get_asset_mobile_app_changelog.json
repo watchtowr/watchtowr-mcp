@@ -1,0 +1,59 @@
+{
+  "api": "MobileApplicationsApi",
+  "method": "get_asset_mobile_app_changelog",
+  "kwargs": {
+    "id": 9
+  },
+  "response": {
+    "data": [
+      {
+        "id": 574854,
+        "description": "redacted-92",
+        "type": "Asset Status Change",
+        "properties": {
+          "old": {
+            "status_name": "pending",
+            "status_reason": "Requires verification"
+          },
+          "attributes": {
+            "status_name": "verified",
+            "status_reason": "Seed data marked as verified by watchTowr staff."
+          }
+        },
+        "created_at": "2024-12-20T08:00:24.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      },
+      {
+        "id": 574853,
+        "description": "redacted-93",
+        "type": "Add Asset",
+        "properties": {
+          "attributes": {
+            "name": "-"
+          }
+        },
+        "created_at": "2024-12-20T08:00:24.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 2,
+        "total": 2,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

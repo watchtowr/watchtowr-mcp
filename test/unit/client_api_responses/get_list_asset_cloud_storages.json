@@ -1,0 +1,52 @@
+{
+  "api": "CloudStorageApi",
+  "method": "get_list_asset_cloud_storages",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "cloudStorage",
+        "source": "module-continuousassurance-controller",
+        "status": "pending",
+        "created_at": "2024-05-14T12:01:25.000Z",
+        "id": "10",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-34",
+        "platform": "digitaloceanspaces",
+        "url": "https://host3.example.com",
+        "criticality": null,
+        "customProperties": []
+      },
+      {
+        "type": "cloudStorage",
+        "source": "module-continuousassurance-controller",
+        "status": "pending",
+        "created_at": "2024-05-14T12:01:16.000Z",
+        "id": "9",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-35",
+        "platform": "digitaloceanspaces",
+        "url": "https://host4.example.com",
+        "criticality": null,
+        "customProperties": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 10,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

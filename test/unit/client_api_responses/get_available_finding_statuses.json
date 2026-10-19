@@ -1,0 +1,13 @@
+{
+  "api": "FindingsApi",
+  "method": "get_available_finding_statuses",
+  "kwargs": {},
+  "response": {
+    "data": [
+      [
+        "confirmed",
+        "unconfirmed"
+      ]
+    ]
+  }
+}

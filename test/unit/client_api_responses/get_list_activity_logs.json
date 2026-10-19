@@ -1,0 +1,56 @@
+{
+  "api": "ActivityLogApi",
+  "method": "get_list_activity_logs",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 577026,
+        "description": "redacted-10",
+        "type": "Successful Login",
+        "properties": {
+          "attributes": {
+            "ip_address": "redacted-11",
+            "session_id": "redacted-12",
+            "user_agent": "redacted-13"
+          }
+        },
+        "created_at": "2026-10-15T02:55:32.000Z",
+        "caused_by": {
+          "id": 54,
+          "name": "redacted-7"
+        }
+      },
+      {
+        "id": 577025,
+        "description": "redacted-10",
+        "type": "Successful Login",
+        "properties": {
+          "attributes": {
+            "ip_address": "redacted-11",
+            "session_id": "redacted-14",
+            "user_agent": "redacted-13"
+          }
+        },
+        "created_at": "2026-10-15T02:54:39.000Z",
+        "caused_by": {
+          "id": 54,
+          "name": "redacted-7"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 1645,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 165,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/activity-log/list?page=2"
+        }
+      }
+    }
+  }
+}

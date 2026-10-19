@@ -43,8 +43,8 @@ def test_list_recent_hunts_returns_a_hunt_with_null_hunt_request_type(tools, pla
 
     output = tools["list_recent_hunts"]()
 
-    assert "[ID:42.0] Example hunt - completed (bespoke) " in output
-    assert "[ID:43.0] Example hunt - completed (bespoke, Misconfig) " in output
+    assert "[ID:42] Example hunt - completed (bespoke) " in output
+    assert "[ID:43] Example hunt - completed (bespoke, Misconfig) " in output
     assert "None" not in output
 
 
@@ -53,7 +53,7 @@ def test_get_hunt_details_returns_a_hunt_with_null_hunt_request_type(tools, plat
 
     output = tools["get_hunt_details"](hunt_id=42)
 
-    assert output.startswith("Hunt #42.0\nTitle: Example hunt\n")
+    assert output.startswith("Hunt #42\nTitle: Example hunt\n")
     assert "Request Type:" not in output
     assert "None" not in output
 

@@ -1,0 +1,61 @@
+{
+  "api": "PackageManagersApi",
+  "method": "get_list_asset_package_managers",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "packageManager",
+        "source": "react (Seed Data)",
+        "status": "verified",
+        "created_at": "2024-12-09T07:39:20.000Z",
+        "id": "4",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-21",
+        "platform": "npm",
+        "url": "https://host13.example.com/package/react",
+        "criticality": null,
+        "customProperties": []
+      },
+      {
+        "type": "packageManager",
+        "source": "0",
+        "status": "verified",
+        "created_at": "2024-06-11T02:47:04.000Z",
+        "id": "3",
+        "discovery_reason": "discovered",
+        "businessUnits": [
+          {
+            "id": 15,
+            "name": "redacted-8"
+          },
+          {
+            "id": 16,
+            "name": "redacted-9"
+          }
+        ],
+        "metadata": {},
+        "name": "redacted-59",
+        "platform": "npm",
+        "url": "https://host14.example.com",
+        "criticality": null,
+        "customProperties": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 3,
+        "total": 3,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

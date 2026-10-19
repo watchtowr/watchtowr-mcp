@@ -1,0 +1,61 @@
+{
+  "api": "IPAddressesApi",
+  "method": "get_asset_ip_changelog",
+  "kwargs": {
+    "id": 148082
+  },
+  "response": {
+    "data": [
+      {
+        "id": 576746,
+        "description": "redacted-88",
+        "type": "Add Asset to Business Unit",
+        "properties": {
+          "attributes": {
+            "ruleId": 24,
+            "businessUnitId": 36,
+            "businessUnitName": "redacted-3"
+          }
+        },
+        "created_at": "2026-06-10T08:52:55.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      },
+      {
+        "id": 576745,
+        "description": "redacted-89",
+        "type": null,
+        "properties": {
+          "old": {
+            "source": "DNS Refresh (host2.example.com)",
+            "discovery_reason": "Discovered within DNS A record"
+          },
+          "attributes": {
+            "source": "internal-status-endpoint",
+            "discovery_reason": "Manually tested via internal status endpoint"
+          }
+        },
+        "created_at": "2026-06-10T08:52:55.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 11,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 2,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/assets/ip/show/148082.0/changelog?page=2"
+        }
+      }
+    }
+  }
+}

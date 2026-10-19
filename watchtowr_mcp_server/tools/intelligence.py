@@ -13,7 +13,8 @@ from watchtowr_api_sdk.api.capability_search_api import CapabilitySearchApi
 from fastmcp.exceptions import ToolError
 from watchtowr_api_sdk.exceptions import ApiException
 
-from ..client import get_api_client, get_total, parse_date, portal_line, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, parse_ids, api_error_summary
+from ..client import no_results, get_api_client, get_total, parse_date, portal_line, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, parse_ids, api_error_summary
+from ..constants import READ_ONLY
 from .composite import affected_asset_name
 
 CONFIRMED_AFFECTED = "Confirmed affected"
@@ -64,13 +65,13 @@ def raise_check_incomplete(call: str, error: Exception) -> typing.NoReturn:
 
 def register_intelligence_tools(mcp):
 
-    @mcp.tool()
+    @mcp.tool(title="List vulnerability intelligence", annotations=READ_ONLY)
     def list_vulnerability_intelligence(
         search: str = None,
         page: int = 1,
         page_size: int = 30,
     ) -> str:
-        """List vulnerability intelligence entries (CVEs tracked by watchTowr).
+        """List vulnerability intelligence entries (CVEs tracked by watchTowr). Results are ordered by EPSS score, highest first.
 
         Exposure verdicts: each entry shows Confirmed affected, No evidence found or
         Check incomplete. Report that verdict; never say "not affected". Say
@@ -91,7 +92,7 @@ def register_intelligence_tools(mcp):
             if not hasattr(response, 'data') or not response.data:
                 if search and page == 1:
                     return f"No vulnerability intelligence entries found. {NOT_TRACKED.format('vulnerability')}"
-                return "No vulnerability intelligence entries found."
+                return no_results(response, page, "No vulnerability intelligence entries found.")
             
             total = get_total(response) or 0
             lines = [f"Vulnerability Intelligence ({len(response.data)} of {total}):"]
@@ -137,6 +138,9 @@ def register_intelligence_tools(mcp):
                             kev_parts.append(source)
                     if kev_parts:
                         extra_parts.append(f"KEV: {', '.join(kev_parts)}")
+                kev_added = getattr(v, 'min_kev_date_added', None)
+                if kev_added:
+                    extra_parts.append(f"KEV added: {kev_added.date()}")
                 if extra_parts:
                     lines.append(f"  {' | '.join(extra_parts)}")
             if any(verdict != CHECK_INCOMPLETE for verdict in verdicts):
@@ -146,7 +150,7 @@ def register_intelligence_tools(mcp):
             raise_check_incomplete("vulnerability intelligence list", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="Get vulnerability intelligence details", annotations=READ_ONLY)
     def get_vulnerability_intelligence_details(
         identifier: str,
     ) -> str:
@@ -242,7 +246,7 @@ def register_intelligence_tools(mcp):
             raise_check_incomplete("vulnerability intelligence details", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="List adversary intelligence", annotations=READ_ONLY)
     def list_adversary_intelligence(
         search: str = None,
         page: int = 1,
@@ -269,7 +273,7 @@ def register_intelligence_tools(mcp):
             if not hasattr(response, 'data') or not response.data:
                 if search and page == 1:
                     return f"No adversary intelligence profiles found. {NOT_TRACKED.format('adversary')}"
-                return "No adversary intelligence profiles found."
+                return no_results(response, page, "No adversary intelligence profiles found.")
             
             total = get_total(response) or 0
             lines = [f"Adversary Intelligence ({min(page_size, len(response.data))} of {total}):"]
@@ -300,7 +304,7 @@ def register_intelligence_tools(mcp):
             raise_check_incomplete("adversary intelligence list", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="Get adversary intelligence details", annotations=READ_ONLY)
     def get_adversary_intelligence_details(
         attacker_id: int,
     ) -> str:
@@ -380,7 +384,7 @@ def register_intelligence_tools(mcp):
             raise_check_incomplete("adversary intelligence details", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="List compromised endpoints", annotations=READ_ONLY)
     def list_compromised_endpoints(
         query: str = None,
         stealer_families: str = None,
@@ -393,6 +397,8 @@ def register_intelligence_tools(mcp):
         created_to: str = None,
         page: int = 1,
         page_size: int = 30,
+        sort_by: typing.Literal["date_compromised", "created_at"] = None,
+        sort_order: typing.Literal["ASC", "DESC"] = None,
     ) -> str:
         """List compromised endpoints discovered via stealer logs.
 
@@ -402,14 +408,16 @@ def register_intelligence_tools(mcp):
             query: Hostname or IP (partial match).
             stealer_families: Comma-separated stealer families.
             operating_systems: Comma-separated OS filters.
-            countries: Comma-separated country codes.
-            statuses: Comma-separated statuses.
+            countries: Comma-separated two-letter country codes (e.g. "US,SG").
+            statuses: Comma-separated statuses: pending, investigating, unrelated, resolved.
             compromised_from: Start date (YYYY-MM-DD).
             compromised_to: End date (YYYY-MM-DD).
             created_from: Start date (YYYY-MM-DD).
             created_to: End date (YYYY-MM-DD).
             page: Page number.
             page_size: Results per page (max 30).
+            sort_by: Sort field: date_compromised or created_at.
+            sort_order: Sort direction: ASC or DESC.
         """
         try:
             api = CompromisedEndpointsApi(get_api_client())
@@ -424,10 +432,12 @@ def register_intelligence_tools(mcp):
             if compromised_to: kwargs["compromised_to"] = compromised_to
             if created_from: kwargs["created_from"] = created_from
             if created_to: kwargs["created_to"] = created_to
+            if sort_by: kwargs["sort_by"] = sort_by
+            if sort_order: kwargs["sort_order"] = sort_order
                 
             response = api.get_list_compromised_endpoints(**supported_kwargs(api.get_list_compromised_endpoints, kwargs))
             if not hasattr(response, 'data') or not response.data:
-                return "No compromised endpoints found."
+                return no_results(response, page, "No compromised endpoints found.")
             
             total = get_total(response) or 0
             lines = [f"Compromised Endpoints ({min(page_size, len(response.data))} of {total}):"]
@@ -464,13 +474,15 @@ def register_intelligence_tools(mcp):
             raise_tool_error("running list_compromised_endpoints", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="Get compromised endpoint credentials", annotations=READ_ONLY)
     def get_compromised_endpoint_credentials(
         endpoint_id: int,
         query: str = None,
         usernames: str = None,
         page: int = 1,
         page_size: int = 30,
+        sort_by: typing.Literal["username"] = None,
+        sort_order: typing.Literal["ASC", "DESC"] = None,
     ) -> str:
         """List harvested credentials for a specific compromised endpoint.
 
@@ -482,16 +494,20 @@ def register_intelligence_tools(mcp):
             usernames: Comma-separated usernames.
             page: Page number.
             page_size: Results per page (max 30).
+            sort_by: Sort field: username.
+            sort_order: Sort direction: ASC or DESC.
         """
         try:
             api = CompromisedEndpointsApi(get_api_client())
             kwargs = {"id": endpoint_id, "page": page, "page_size": min(page_size, 30)}
             if query: kwargs["query"] = query
             if usernames: kwargs["usernames"] = usernames
+            if sort_by: kwargs["sort_by"] = sort_by
+            if sort_order: kwargs["sort_order"] = sort_order
                 
             response = api.get_list_compromised_endpoint_harvested_credentials(**supported_kwargs(api.get_list_compromised_endpoint_harvested_credentials, kwargs))
             if not hasattr(response, 'data') or not response.data:
-                return f"No harvested credentials found for endpoint {endpoint_id}."
+                return no_results(response, page, f"No harvested credentials found for endpoint {endpoint_id}.")
             
             total = get_total(response) or 0
             lines = [
@@ -511,7 +527,7 @@ def register_intelligence_tools(mcp):
             raise_tool_error("running get_compromised_endpoint_credentials", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="List credential attempt logs", annotations=READ_ONLY)
     def list_credential_attempt_logs(
         technologies: str = None,
         asset_name: str = None,
@@ -523,6 +539,8 @@ def register_intelligence_tools(mcp):
         created_to: str = None,
         page: int = 1,
         page_size: int = 30,
+        sort_by: typing.Literal["attempted_at"] = None,
+        sort_order: typing.Literal["ASC", "DESC"] = None,
     ) -> str:
         """List credential stuffing attempt logs across the attack surface.
 
@@ -530,15 +548,17 @@ def register_intelligence_tools(mcp):
         
         Args:
             technologies: Comma-separated technologies.
-            asset_name: Partial match.
-            username: Partial match.
-            statuses: Comma-separated statuses.
-            sources: Comma-separated sources.
+            asset_name: Partial match on the targeted asset name.
+            username: Partial match on the attempted username.
+            statuses: Comma-separated attempt results: successful, unsuccessful, out-of-scope.
+            sources: Comma-separated credential sources: Compromised Endpoint, Brute Force, Data Breach, Unknown.
             business_unit_ids: Comma-separated BU IDs.
             created_from: Start date (YYYY-MM-DD).
             created_to: End date (YYYY-MM-DD).
             page: Page number.
             page_size: Results per page (max 30).
+            sort_by: Sort field: attempted_at.
+            sort_order: Sort direction: ASC or DESC.
         """
         try:
             api = CredentialAttemptLogsApi(get_api_client())
@@ -552,10 +572,12 @@ def register_intelligence_tools(mcp):
             if business_unit_ids: kwargs["business_unit_ids"] = parse_ids(business_unit_ids, "business_unit_ids")
             if created_from: kwargs["created_from"] = created_from
             if created_to: kwargs["created_to"] = created_to
+            if sort_by: kwargs["sort_by"] = sort_by
+            if sort_order: kwargs["sort_order"] = sort_order
                 
             response = api.get_list_credential_attempt_logs(**supported_kwargs(api.get_list_credential_attempt_logs, kwargs))
             if not hasattr(response, 'data') or not response.data:
-                return "No credential attempt logs found."
+                return no_results(response, page, "No credential attempt logs found.")
             
             total = get_total(response) or 0
             lines = [f"Credential Attempt Logs ({min(page_size, len(response.data))} of {total}):"]
@@ -595,7 +617,7 @@ def register_intelligence_tools(mcp):
             raise_tool_error("running list_credential_attempt_logs", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="List finding retest history", annotations=READ_ONLY)
     def list_finding_retest_history(
         finding_id: str = None,
         finding_title: str = None,
@@ -610,6 +632,8 @@ def register_intelligence_tools(mcp):
         retest_start_date_to: str = None,
         page: int = 1,
         page_size: int = 30,
+        sort_by: typing.Literal["created_at", "updated_at"] = None,
+        sort_order: typing.Literal["ASC", "DESC"] = None,
     ) -> str:
         """List finding retest history across all findings (global audit view).
 
@@ -619,16 +643,18 @@ def register_intelligence_tools(mcp):
             finding_id: Filter by finding ID.
             finding_title: Filter by finding title.
             asset_name: Filter by asset name.
-            severities: Comma-separated severities.
-            retest_run_statuses: Comma-separated retest run statuses.
-            retest_result_statuses: Comma-separated result statuses (resolved, unresolved).
-            attempts: Comma-separated attempt types.
-            triggered_by: Comma-separated trigger sources.
+            severities: Comma-separated lowercase severities: critical, high, medium, low, info.
+            retest_run_statuses: Comma-separated retest run statuses: success, error, inProgress.
+            retest_result_statuses: Comma-separated result statuses: resolved, unresolved.
+            attempts: Comma-separated attempt counts: oneAttempt, multipleAttempts.
+            triggered_by: Comma-separated names of the users who triggered the retests.
             business_unit_ids: Comma-separated BU IDs.
             retest_start_date_from: Start date (YYYY-MM-DD).
             retest_start_date_to: End date (YYYY-MM-DD).
             page: Page number.
             page_size: Results per page (max 30).
+            sort_by: Sort field: created_at or updated_at.
+            sort_order: Sort direction: ASC or DESC.
         """
         try:
             api = FindingRetestHistoryApi(get_api_client())
@@ -645,10 +671,12 @@ def register_intelligence_tools(mcp):
             if business_unit_ids: kwargs["business_unit_ids"] = business_unit_ids
             if retest_start_date_from: kwargs["retest_start_date_from"] = parse_date(retest_start_date_from)
             if retest_start_date_to: kwargs["retest_start_date_to"] = parse_date(retest_start_date_to)
+            if sort_by: kwargs["sort_by"] = sort_by
+            if sort_order: kwargs["sort_order"] = sort_order
                 
             response = api.get_list_finding_retest_history(**supported_kwargs(api.get_list_finding_retest_history, kwargs))
             if not hasattr(response, 'data') or not response.data:
-                return "No finding retest history entries found."
+                return no_results(response, page, "No finding retest history entries found.")
             
             total = get_total(response) or 0
             lines = [f"Finding Retest History ({min(page_size, len(response.data))} of {total}):"]
@@ -701,7 +729,7 @@ def register_intelligence_tools(mcp):
             raise_tool_error("running list_finding_retest_history", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="Get finding retest history details", annotations=READ_ONLY)
     def get_finding_retest_history_details(
         finding_id: int,
     ) -> str:
@@ -772,7 +800,7 @@ def register_intelligence_tools(mcp):
             raise_tool_error("running get_finding_retest_history_details", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="Search Active Defense library", annotations=READ_ONLY)
     def search_active_defense_library(
         search: str = None,
         page: int = 1,
@@ -780,7 +808,7 @@ def register_intelligence_tools(mcp):
     ) -> str:
         """Browse or search the active defense rule library.
 
-        Lists detection rules and defense templates available in the platform.
+        Lists detection rules and defense templates available in the platform. Results are ordered by creation date, newest first.
 
         Args:
             search: Search by rule name or description.
@@ -798,7 +826,7 @@ def register_intelligence_tools(mcp):
             )
 
             if not hasattr(response, "data") or not response.data:
-                return "No active defense rules found."
+                return no_results(response, page, "No active defense rules found.")
 
             total = get_total(response) or 0
             lines = [f"Active Defense Library ({len(response.data)} of {total}):"]
@@ -849,16 +877,23 @@ def register_intelligence_tools(mcp):
             raise_tool_error("running search_active_defense_library", e)
 
 
-    @mcp.tool()
+    @mcp.tool(title="Search capabilities", annotations=READ_ONLY)
     def search_capabilities(
         query: str,
         page: int = 1,
         page_size: int = 20,
     ) -> str:
-        """Search watchTowr security coverage by hunt title, CVE ID, or TTP tactic.
+        """Search watchTowr hunts and TTP Library tactics by hunt title, CVE ID, or tactic name.
 
-        Returns matching hunts with associated CVE IDs and TTP Library tactics,
-        showing what the platform actively detects.
+        Returns matching hunts of every status with the CVE IDs that matched the query
+        (not every CVE the hunt covers), plus TTP Library tactics. A match is not coverage:
+        check each hunt's status. "completed" means watchTowr has a check and the test has
+        finished; its findings and affected assets show the result. Zero findings and zero
+        affected assets means the hunt found nothing in your business units when it ran; it
+        is not proof of safety. Affected assets with zero findings mean investigation is
+        recommended. "not-covered" means there is no
+        detection. "received" means queued; "in-progress" means testing is underway;
+        neither has a final result. "outdated" means a newer hunt superseded it.
 
         Args:
             query: Search term — hunt title, CVE ID (e.g. CVE-2021-44228), or tactic name.
@@ -878,7 +913,7 @@ def register_intelligence_tools(mcp):
             ttp_library = getattr(data, "ttp_library", None) or []
 
             if not hunts and not ttp_library:
-                return f'No capabilities found for "{query}".'
+                return no_results(response, page, f'No capabilities found for "{query}".')
 
             total = get_total(response) or len(hunts)
             lines = [
@@ -896,21 +931,23 @@ def register_intelligence_tools(mcp):
                     total_findings = getattr(hunt, "total_findings", None)
                     total_assets = getattr(hunt, "total_assets", None)
 
-                    lines.append(f"{i}. {title}{portal_link('hunt', getattr(hunt, 'id', None))}")
-                    meta_parts = []
-                    if status:
-                        meta_parts.append(f"Status: {status}")
+                    hunt_id = getattr(hunt, "id", None)
+                    id_str = f"[ID:{int(hunt_id)}] " if hunt_id is not None else ""
+                    lines.append(f"{i}. {id_str}{title}{portal_link('hunt', hunt_id)}")
+                    meta_parts = [f"Status: {status or 'unknown'}"]
                     if hunt_type:
                         meta_parts.append(f"Type: {hunt_type}")
                     if total_findings is not None:
                         meta_parts.append(f"Findings: {total_findings}")
                     if total_assets is not None:
-                        meta_parts.append(f"Assets: {total_assets}")
-                    if meta_parts:
-                        lines.append(f"   {' | '.join(meta_parts)}")
+                        meta_parts.append(f"Affected Assets: {total_assets}")
+                    lines.append(f"   {' | '.join(meta_parts)}")
                     if cves:
                         cve_str = ", ".join(str(cve) for cve in cves[:5])
-                        lines.append(f"   CVEs: {cve_str}")
+                        if len(cves) > 5:
+                            more = len(cves) - 5
+                            cve_str += f", and {more} more CVE{'s' if more > 1 else ''}"
+                        lines.append(f"   Matching CVEs: {cve_str}")
                     lines.append("")
 
             if ttp_library:

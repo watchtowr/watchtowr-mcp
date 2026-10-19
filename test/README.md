@@ -25,7 +25,7 @@ Two layers covering the watchtowr-mcp server:
 uv run pytest test/unit
 ```
 
-Should always pass on any branch. If `test/unit/test_readme_sync.py` fails, the `README.md` tool tables have drifted from `watchtowr_mcp_server/tools/*.py` — the failure message names the divergent tool. If `test_sdk_surface.py` fails, an upstream SDK rename/removal has broken a call site in the MCP server, or a tool passes a keyword the SDK method no longer accepts. If `test_tool_error_path.py` fails, a tool raised before reaching the SDK transport (typically a missing import or a stale keyword) — the failure message shows the tool's error string.
+Should always pass on any branch. If `test/unit/test_readme_sync.py` fails, the `README.md` tool tables have drifted from `watchtowr_mcp_server/tools/*.py` — the failure message names the divergent tool. If `test_sdk_surface.py` fails, an upstream SDK rename/removal has broken a call site in the MCP server, or a tool passes a keyword the SDK method no longer accepts. If `test_tool_error_path.py` fails, a tool raised before reaching the SDK transport (typically a missing import or a stale keyword) — the failure message shows the tool's error string. If `test_client_api_contract.py` fails, the pinned SDK rejects a response the Platform really returns (the message names the model and field): report it to watchTowr, and patch `sdk_compat.py` until a fixed SDK ships.
 
 ### Live read-only sweep across all tools
 
@@ -71,8 +71,10 @@ uv run pytest test/integration/test_workflow.py -m write --run-writes
 test/
 ├── README.md                       ← you are here
 ├── conftest.py                     ← shared fixtures + --run-writes wiring
+├── record_client_api_responses.py  ← records and anonymises the fixtures in unit/client_api_responses/
 ├── unit/
 │   ├── conftest.py                 ← keeps WATCHTOWR_MCP_READ_ONLY off unless a test turns it on
+│   ├── test_client_api_contract.py ← replays recorded Client API responses through the SDK calls the MCP makes
 │   ├── test_sdk_surface.py         ← every (Api class, method, kwargs) the MCP calls resolves against the SDK
 │   ├── test_readme_sync.py         ← parses README tables vs ast-walks tools/*.py
 │   ├── test_sdk_compat.py          ← exercises FindingRetestResponseDtoCompat + patched models

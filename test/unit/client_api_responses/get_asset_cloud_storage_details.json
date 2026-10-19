@@ -1,0 +1,24 @@
+{
+  "api": "CloudStorageApi",
+  "method": "get_asset_cloud_storage_details",
+  "kwargs": {
+    "id": 10
+  },
+  "response": {
+    "data": {
+      "type": "cloudStorage",
+      "source": "module-continuousassurance-controller",
+      "status": "pending",
+      "created_at": "2024-05-14T12:01:25.000Z",
+      "id": "10",
+      "discovery_reason": null,
+      "businessUnits": [],
+      "metadata": {},
+      "name": "redacted-34",
+      "platform": "digitaloceanspaces",
+      "url": "https://host3.example.com",
+      "criticality": null,
+      "customProperties": []
+    }
+  }
+}

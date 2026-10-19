@@ -1,0 +1,61 @@
+{
+  "api": "IPRangesApi",
+  "method": "get_asset_iprange_changelog",
+  "kwargs": {
+    "id": 17
+  },
+  "response": {
+    "data": [
+      {
+        "id": 576690,
+        "description": "redacted-90",
+        "type": "Asset Updated (favorites)",
+        "properties": {
+          "attributes": {
+            "action": "Added",
+            "assetId": 17,
+            "assetType": "ipRange"
+          }
+        },
+        "created_at": "2026-05-22T09:16:41.000Z",
+        "caused_by": {
+          "id": 54,
+          "name": "redacted-7"
+        }
+      },
+      {
+        "id": 574608,
+        "description": "redacted-91",
+        "type": "Asset Status Change",
+        "properties": {
+          "old": {
+            "status_name": "pending",
+            "status_reason": "Requires verification"
+          },
+          "attributes": {
+            "status_name": "verified",
+            "status_reason": "Seed data marked as verified by watchTowr staff."
+          }
+        },
+        "created_at": "2024-10-22T07:56:30.000Z",
+        "caused_by": {
+          "id": 1,
+          "name": "redacted-75"
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 3,
+        "total": 3,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

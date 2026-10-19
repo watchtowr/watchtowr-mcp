@@ -29,7 +29,7 @@ from watchtowr_mcp_server.mcp import create_server
 FINDINGS_LIST_URL = "/api/client/findings/list"
 EMPTY_PAGE = JsonReply(page_of([]))
 BUSINESS_UNIT = JsonReply({"data": {
-    "id": 1.0,
+    "id": 1,
     "name": "Example Business Unit",
     "description": None,
     "type": "custom",
@@ -470,7 +470,8 @@ def test_actionable_queue_total_is_the_platform_total_not_the_rows_fetched(tools
     lines = tools["get_actionable_findings_queue"](page_size=1).splitlines()
 
     assert "Total: 123" in lines
-    assert "Showing 4: the first 1 of each severity." in lines
+    assert "Showing 4: page 1 of each severity, 1 per severity." in lines
+    assert "Pass page=2 for more." in lines
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,76 @@
+{
+  "api": "FindingRetestHistoryApi",
+  "method": "get_list_finding_retest_history",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 43,
+        "finding": {
+          "id": 184,
+          "title": "Network Service Exposed to Internet - SSH",
+          "severity": "medium",
+          "status": "confirmed"
+        },
+        "asset": {
+          "id": 148081,
+          "name": "redacted-49",
+          "type": "ip"
+        },
+        "triggeredBy": {
+          "type": "user",
+          "id": 54,
+          "name": "redacted-7"
+        },
+        "currentRetestStatus": "error",
+        "result": "unresolved",
+        "startedAt": "2026-08-11T10:48:48.000Z",
+        "completedAt": null,
+        "updatedAt": "2026-08-21T10:10:42.000Z",
+        "createdAt": "2026-08-11T10:48:48.000Z",
+        "attemptNumber": 1,
+        "daysOpenBeforeRetest": 168
+      },
+      {
+        "id": 42,
+        "finding": {
+          "id": 147,
+          "title": "Application Installation Functionality Exposed (installer-page)",
+          "severity": "info",
+          "status": "confirmed"
+        },
+        "asset": {
+          "id": 23,
+          "name": "redacted-70",
+          "type": "subdomain"
+        },
+        "triggeredBy": {
+          "type": "user",
+          "id": 54,
+          "name": "redacted-7"
+        },
+        "currentRetestStatus": "success",
+        "result": "resolved",
+        "startedAt": "2026-04-22T02:50:58.000Z",
+        "completedAt": "2026-04-22T02:50:59.000Z",
+        "updatedAt": "2026-04-22T02:50:59.000Z",
+        "createdAt": "2026-04-22T02:50:58.000Z",
+        "attemptNumber": 1,
+        "daysOpenBeforeRetest": 96
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 33,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 4,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/finding-retest-history/list?page=2"
+        }
+      }
+    }
+  }
+}

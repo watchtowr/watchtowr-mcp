@@ -1,0 +1,75 @@
+{
+  "api": "FindingsApi",
+  "method": "get_finding_details",
+  "kwargs": {
+    "id": 186
+  },
+  "response": {
+    "data": {
+      "id": 186,
+      "title": "Directory Listing Enabled",
+      "created_at": "2026-03-09T03:44:09.000Z",
+      "cvssv3_score": 0,
+      "cvssv3_metrics": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N/E:H/RL:O/RC:C",
+      "state": "In Progress",
+      "platform_url": "https://host1.example.com/findings/186",
+      "description": "redacted-1",
+      "impact": "If discovered by an attacker it may be possible to:\n\n* Identify sensitive files for download and further review\n* Identity technology in use\n* Identify paths to sensitive functionality for further review",
+      "finding_impact": "Prioritized Findings",
+      "tags": [],
+      "evidence": "redacted-2",
+      "recommendation": "It is recommended that directory listing be disabled on the affected host, and any sensitive files exposed be removed. If necessary, it is also recommeneded to review access logs for the exposed sensitive files to determine if there has been prior access.",
+      "references": "No references.",
+      "severity": "info",
+      "status": "confirmed",
+      "affected": {
+        "data": {
+          "type": "domain",
+          "source": "test domain asset (Seed Data)",
+          "status": "verified",
+          "created_at": "2025-07-22T03:47:19.000Z",
+          "id": "109",
+          "discovery_reason": "test",
+          "platform_url": "https://host1.example.com/assets/domain/109",
+          "businessUnits": [
+            {
+              "id": 36,
+              "name": "redacted-3"
+            },
+            {
+              "id": 47,
+              "name": "redacted-73"
+            }
+          ],
+          "metadata": {},
+          "name": "redacted-4",
+          "dns_records": [],
+          "criticality": null,
+          "customProperties": [],
+          "engineSettings": {
+            "adversarySightEnabled": true,
+            "dnsBruteforcingEnabled": true,
+            "automatedRedTeamingEnabled": true,
+            "intrusiveHttpChecksEnabled": false,
+            "credentialStuffingEnabled": true,
+            "rapidReactionEnabled": false
+          }
+        }
+      },
+      "cve_id": "CVE-2026-2304",
+      "epss_score": null,
+      "last_seen": null,
+      "retest": {
+        "retest_remaining": 999999,
+        "current_retest": null
+      },
+      "retest_history": [],
+      "assigned_user": null,
+      "last_status_updated_at": "2026-03-09T03:44:14.000Z",
+      "age": 221,
+      "criticality": null,
+      "customProperties": [],
+      "detection_rules": []
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "api": "HuntsApi",
+  "method": "get_list_asset_by_hunt",
+  "kwargs": {
+    "id": 105
+  },
+  "response": {
+    "data": [],
+    "meta": {
+      "pagination": {
+        "count": 0,
+        "total": 0,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 0,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

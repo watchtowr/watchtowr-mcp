@@ -1,0 +1,126 @@
+{
+  "api": "DomainsApi",
+  "method": "get_list_asset_domains",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "domain",
+        "source": "test domain asset (Seed Data)",
+        "status": "verified",
+        "created_at": "2025-07-22T03:47:19.000Z",
+        "id": "109",
+        "discovery_reason": "test",
+        "businessUnits": [
+          {
+            "id": 36,
+            "name": "redacted-3"
+          }
+        ],
+        "metadata": {},
+        "name": "redacted-4",
+        "live": true,
+        "whoisData": [
+          {
+            "id": 20,
+            "data": {
+              "asn": "redacted-98",
+              "nir": null,
+              "nets": [
+                {
+                  "cidr": "192.0.2.2/18",
+                  "city": "redacted-99",
+                  "name": "redacted-24",
+                  "range": "192.0.2.2 - 192.0.2.3",
+                  "state": "CA",
+                  "emails": [
+                    "user@example.com",
+                    "user@example.com"
+                  ],
+                  "handle": "redacted-100",
+                  "address": "redacted-25",
+                  "country": "US",
+                  "created": "2012-11-20",
+                  "updated": "2024-05-21",
+                  "description": "redacted-26",
+                  "postal_code": "redacted-101"
+                }
+              ],
+              "query": "192.0.2.4",
+              "asn_cidr": "192.0.2.5/24",
+              "asn_date": "2012-11-20",
+              "referral": null,
+              "asn_registry": "arin",
+              "raw_referral": null,
+              "asn_description": "redacted-27",
+              "asn_country_code": "US"
+            },
+            "raw": "redacted-28"
+          }
+        ],
+        "dns_records": [],
+        "criticality": null,
+        "customProperties": [],
+        "infrastructure": {},
+        "engineSettings": {
+          "adversarySightEnabled": true,
+          "dnsBruteforcingEnabled": true,
+          "automatedRedTeamingEnabled": true,
+          "intrusiveHttpChecksEnabled": false,
+          "credentialStuffingEnabled": true,
+          "rapidReactionEnabled": false
+        }
+      },
+      {
+        "type": "domain",
+        "source": "watchtowr-cloud-integration-gcp-hosts",
+        "status": "verified",
+        "created_at": "2024-11-06T03:50:46.000Z",
+        "id": "108",
+        "discovery_reason": "test",
+        "businessUnits": [
+          {
+            "id": 15,
+            "name": "redacted-8"
+          },
+          {
+            "id": 16,
+            "name": "redacted-9"
+          }
+        ],
+        "metadata": {
+          "prop": "redacted-29",
+          "metaname": "redacted-30"
+        },
+        "name": "redacted-31",
+        "live": false,
+        "whoisData": [],
+        "dns_records": [],
+        "criticality": null,
+        "customProperties": [],
+        "infrastructure": {},
+        "engineSettings": {
+          "adversarySightEnabled": true,
+          "dnsBruteforcingEnabled": true,
+          "automatedRedTeamingEnabled": true,
+          "intrusiveHttpChecksEnabled": false,
+          "credentialStuffingEnabled": true,
+          "rapidReactionEnabled": true
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 93,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 10,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/assets/domain/list?page=2"
+        }
+      }
+    }
+  }
+}

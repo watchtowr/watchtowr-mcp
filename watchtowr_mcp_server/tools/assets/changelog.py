@@ -12,7 +12,8 @@ from watchtowr_api_sdk.api.api_documentation_api import APIDocumentationApi
 from watchtowr_api_sdk.api.package_managers_api import PackageManagersApi
 from watchtowr_api_sdk.api.cloud_integration_assets_api import CloudIntegrationAssetsApi
 
-from ...client import get_api_client, portal_line, untrusted, raise_tool_error
+from ...client import no_results, get_api_client, portal_line, untrusted, raise_tool_error
+from ...constants import READ_ONLY
 
 
 _CHANGELOG_DISPATCH = {
@@ -33,7 +34,7 @@ _CHANGELOG_DISPATCH = {
 
 def register_asset_changelog_tools(mcp):
 
-    @mcp.tool()
+    @mcp.tool(title="Get asset changelog", annotations=READ_ONLY)
     def get_asset_changelog(
         asset_type: str,
         asset_id: int,
@@ -63,7 +64,7 @@ def register_asset_changelog_tools(mcp):
 
             data = response.data if hasattr(response, "data") else None
             if not data:
-                return f"No changelog entries found for {asset_type} #{asset_id}."
+                return no_results(response, page, f"No changelog entries found for {asset_type} #{asset_id}.")
 
             meta = getattr(response, "meta", None)
             total = 0

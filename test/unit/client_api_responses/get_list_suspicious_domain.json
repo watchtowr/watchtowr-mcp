@@ -1,0 +1,46 @@
+{
+  "api": "SuspiciousDomainsApi",
+  "method": "get_list_suspicious_domain",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 1,
+        "name": "redacted-42",
+        "discovery_reason": "char-replacement",
+        "status": "legitimate",
+        "whoisData": [
+          {
+            "id": 8,
+            "data": {
+              "message": "This is a private ip address"
+            },
+            "raw": "redacted-43"
+          }
+        ],
+        "created_at": "2023-02-03T10:16:09.000Z"
+      },
+      {
+        "id": 2,
+        "name": "redacted-44",
+        "discovery_reason": "extra-hyphen",
+        "status": "pending",
+        "whoisData": [],
+        "created_at": "2023-02-03T10:16:09.000Z"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 14,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 2,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/suspicious-domain/list?page=2"
+        }
+      }
+    }
+  }
+}

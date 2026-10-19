@@ -3,9 +3,11 @@ import logging
 
 from fastmcp import FastMCP
 
+from . import __version__
 from .client import env_value, read_only_mode_enabled, warn_if_read_only_value_is_unrecognised
 from .http_security import build_http_middleware
 from .middleware import RequestHeadersMiddleware
+from .parameter_docs import ParameterDocs
 from .sdk_compat import apply_watchtowr_sdk_compat_patches
 from .tools import register_all_tools
 
@@ -14,6 +16,9 @@ logger = logging.getLogger(__name__)
 SERVER_INSTRUCTIONS = (
     'Answer exposure questions ("are we affected by CVE-X?", "is adversary Y a risk to us?") with exactly '
     "one of these verdicts. "
+    "For a CVE, call search_findings with only cve first: it prints the verdict and the affected assets. "
+    "If it prints No evidence found, call get_vulnerability_intelligence_details with the CVE ID to check "
+    "whether watchTowr tracks the CVE. "
     "Confirmed affected: a tool printed it, meaning the platform has Confirmed findings at the "
     "organization's impact threshold in the caller's business units (status up to 15 minutes old). "
     "Possibly exposed: only when you show a technology or version match from asset data; no tool prints it. "
@@ -23,7 +28,10 @@ SERVER_INSTRUCTIONS = (
     "If a tool says watchTowr does not track the vulnerability or adversary, say so and give no verdict. "
     'A line starting "Incomplete:" means that part of the answer failed or timed out; '
     "never report the missing part as none. "
-    'A total written as "at least N" leaves out the parts that failed; never report it as exact.'
+    'A total written as "at least N" leaves out the parts that failed; never report it as exact. '
+    "Tools return at most 30 results per call, so never ask for a page_size above 30; tools with a page parameter return later pages. "
+    "Call first: get_attack_surface_summary for an overview of the attack surface; "
+    'get_attack_surface_delta for what is new or most recent in the last N days.'
 )
 
 
@@ -49,8 +57,15 @@ def _http_port() -> int:
 
 def create_server() -> FastMCP:
     apply_watchtowr_sdk_compat_patches()
-    mcp = FastMCP("watchtowr", instructions=SERVER_INSTRUCTIONS, mask_error_details=True)
+    mcp = FastMCP(
+        "watchtowr",
+        version=__version__,
+        website_url="https://watchtowr.com",
+        instructions=SERVER_INSTRUCTIONS,
+        mask_error_details=True,
+    )
     register_all_tools(mcp)
+    mcp.add_transform(ParameterDocs())
     mcp.add_middleware(RequestHeadersMiddleware())
     warn_if_read_only_value_is_unrecognised()
     if read_only_mode_enabled():

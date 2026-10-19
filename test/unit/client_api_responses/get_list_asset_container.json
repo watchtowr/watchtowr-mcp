@@ -1,0 +1,54 @@
+{
+  "api": "ContainersApi",
+  "method": "get_list_asset_container",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "container",
+        "source": "module-continuousassurance-controller",
+        "status": "verified",
+        "created_at": "2024-05-14T07:14:22.000Z",
+        "id": "6",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-39",
+        "owner": "redacted-37",
+        "platform": "github",
+        "url": "https://host5.example.com",
+        "criticality": null,
+        "customProperties": []
+      },
+      {
+        "type": "container",
+        "source": "module-continuousassurance-controller",
+        "status": "verified",
+        "created_at": "2024-05-14T07:12:08.000Z",
+        "id": "5",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-40",
+        "owner": "redacted-37",
+        "platform": "ecr",
+        "url": "https://host6.example.com",
+        "criticality": null,
+        "customProperties": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 6,
+        "total": 6,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

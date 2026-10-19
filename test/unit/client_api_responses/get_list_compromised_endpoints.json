@@ -1,0 +1,54 @@
+{
+  "api": "CompromisedEndpointsApi",
+  "method": "get_list_compromised_endpoints",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 10,
+        "hostname": "redacted-62",
+        "ip": "192.0.2.9",
+        "stealerId": "redacted-63",
+        "stealerFamily": null,
+        "status": "investigating",
+        "dateCompromised": "2025-08-14T09:30:00.000Z",
+        "operatingSystem": "Linux",
+        "malwarePath": "redacted-64",
+        "country": "N/A",
+        "discoveryType": null,
+        "discoveryValue": null,
+        "createdAt": "2025-08-14T10:04:37.000Z",
+        "updatedAt": "2025-10-10T09:31:52.000Z"
+      },
+      {
+        "id": 12,
+        "hostname": "redacted-62",
+        "ip": "192.0.2.9",
+        "stealerId": "redacted-65",
+        "stealerFamily": "Raccoon Stealer 123 zzz",
+        "status": "pending",
+        "dateCompromised": "2025-08-14T09:30:00.000Z",
+        "operatingSystem": "Linux",
+        "malwarePath": "redacted-64",
+        "country": "N/A",
+        "discoveryType": null,
+        "discoveryValue": null,
+        "createdAt": "2025-08-15T04:31:49.000Z",
+        "updatedAt": "2025-08-17T14:42:48.000Z"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 10,
+        "total": 17,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 2,
+        "links": {
+          "previous": null,
+          "next": "https://host1.example.com/api/client/compromised-endpoints/list?page=2"
+        }
+      }
+    }
+  }
+}

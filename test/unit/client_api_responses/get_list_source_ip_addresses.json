@@ -1,0 +1,21 @@
+{
+  "api": "SourceIPAddressesApi",
+  "method": "get_list_source_ip_addresses",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "name": "redacted-15",
+        "description": "redacted-16",
+        "region": null,
+        "whitelist": false
+      },
+      {
+        "name": "redacted-17",
+        "description": "redacted-18",
+        "region": null,
+        "whitelist": false
+      }
+    ]
+  }
+}

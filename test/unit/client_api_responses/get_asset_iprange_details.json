@@ -1,0 +1,25 @@
+{
+  "api": "IPRangesApi",
+  "method": "get_asset_iprange_details",
+  "kwargs": {
+    "id": 17
+  },
+  "response": {
+    "data": {
+      "type": "ipRange",
+      "source": "adad (Seed Data)",
+      "status": "verified",
+      "created_at": "2024-10-22T07:56:30.000Z",
+      "id": "17",
+      "discovery_reason": null,
+      "businessUnits": [],
+      "metadata": {},
+      "iprange": "192.0.2.6/27",
+      "asn": "redacted-102",
+      "desc": "adad",
+      "country": "SG",
+      "criticality": null,
+      "customProperties": []
+    }
+  }
+}

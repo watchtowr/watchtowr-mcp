@@ -1,0 +1,56 @@
+{
+  "api": "CertificatesApi",
+  "method": "get_list_certificates",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "id": 3,
+        "response": "{\"data\": \"a\"}",
+        "certificate": {
+          "id": 1,
+          "subjectCommonName": "redacted-47",
+          "subjectOrganisation": "redacted-48",
+          "subjectAltNames": [
+            "a",
+            "b"
+          ],
+          "subjectCountry": "sg",
+          "issuerCommonName": "issuer common name",
+          "issuerOrganisation": "issuer common org",
+          "issuerCountry": "sg",
+          "fingerprint": "aaa",
+          "publicKeyInfoAlg": "a",
+          "publicKeyInfoSize": 2,
+          "createdAt": "2025-02-07T07:07:43.000Z",
+          "updatedAt": null,
+          "notAfter": "2024-02-07T10:27:45.000Z",
+          "notBefore": "2024-02-07T10:27:45.000Z",
+          "serialNumber": "123123",
+          "issuedByStatus": null,
+          "lastSeenAt": "2025-02-04T07:07:43.000Z",
+          "status": "Expired"
+        },
+        "asset": {
+          "id": 148081,
+          "name": "redacted-49",
+          "type": "ip",
+          "businessUnits": []
+        }
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 1,
+        "total": 1,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

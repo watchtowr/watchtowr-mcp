@@ -142,8 +142,6 @@ def drop_unknown_keys_before_from_dict(model_class) -> None:
     def from_dict_without_unknown_keys(cls, obj: Optional[Dict[str, Any]]) -> Any:
         if isinstance(obj, dict):
             obj = {key: value for key, value in obj.items() if key in field_names}
-            if isinstance(obj.get("dnssec"), list):
-                obj["dnssec"] = ", ".join(str(value) for value in obj["dnssec"])
         return cls.stock_from_dict(obj)
 
     model_class.from_dict = classmethod(from_dict_without_unknown_keys)  # type: ignore[assignment]

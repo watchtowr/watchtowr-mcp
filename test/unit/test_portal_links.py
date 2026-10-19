@@ -210,12 +210,12 @@ LINK_CASES = [
              "[ID:21", f"Finding: {HOST}/findings/5"),
     LinkCase("list_points_of_interest", {},
              {r"/points-of-interest/list$": page_of([
-                 {**_point_json(1.0), "assetId": 3, "assetName": "example.com", "assetType": "domain", "findingId": 5},
+                 {**_point_json(1), "assetId": 3, "assetName": "example.com", "assetType": "domain", "findingId": 5},
              ])},
              "[ID:1", f"Asset: {HOST}/assets/domain/3/overview"),
     LinkCase("list_points_of_interest", {},
              {r"/points-of-interest/list$": page_of([
-                 {**_point_json(1.0), "assetId": 3, "assetName": "example.com", "assetType": "domain", "findingId": 5},
+                 {**_point_json(1), "assetId": 3, "assetName": "example.com", "assetType": "domain", "findingId": 5},
              ])},
              "[ID:1", f"Finding: {HOST}/findings/5"),
     LinkCase("get_vulnerability_intelligence_details", {"identifier": "CVE-2023-27350"},
@@ -269,7 +269,7 @@ def test_detail_portal_line_follows_the_header(tools, fake_platform):
 
     lines = tools["get_hunt_details"](hunt_id=42).splitlines()
 
-    assert lines[:2] == ["Hunt #42.0", f"Portal: {HOST}/hunts/42/overview"]
+    assert lines[:2] == ["Hunt #42", f"Portal: {HOST}/hunts/42/overview"]
 
 
 def test_list_header_link_is_on_its_own_line(tools, fake_platform):
@@ -293,11 +293,3 @@ def test_harvested_credentials_header_link_is_on_its_own_line(tools, fake_platfo
     assert lines[0].endswith("):")
     assert lines[1] == f"Portal: {HOST}/compromised-endpoints/13/overview"
 
-
-def test_float_id_from_the_platform_links_as_an_integer(tools, fake_platform):
-    fake_platform.route(r"/api/client/hunts/list$", JsonReply(page_of([_hunt_payload("Misconfig")])))
-
-    out = tools["list_recent_hunts"]()
-
-    assert "[ID:42.0]" in out
-    assert out.splitlines()[1].endswith(f" — {HOST}/hunts/42/overview")

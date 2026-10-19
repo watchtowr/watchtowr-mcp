@@ -4,7 +4,8 @@ from watchtowr_api_sdk.api.source_ip_addresses_api import SourceIPAddressesApi
 from watchtowr_api_sdk.api.activity_log_api import ActivityLogApi
 from watchtowr_api_sdk.api.business_unit_api import BusinessUnitApi
 
-from ..client import get_api_client, get_total, parse_date, portal_line, portal_link, untrusted, raise_tool_error, parse_ids
+from ..client import no_results, get_api_client, get_total, parse_date, portal_line, portal_link, untrusted, raise_tool_error, parse_ids
+from ..constants import READ_ONLY
 
 
 def _format_log_field(value) -> str:
@@ -28,7 +29,7 @@ def _format_log_entry(log) -> str:
 
 def register_organization_tools(mcp):
 
-    @mcp.tool()
+    @mcp.tool(title="Get watchTowr source IPs", annotations=READ_ONLY)
     def get_watchtowr_source_ips() -> str:
         """Get watchTowr Platform source IP addresses that should be whitelisted."""
         try:
@@ -64,7 +65,7 @@ def register_organization_tools(mcp):
         except Exception as e:
             raise_tool_error("retrieving source IP addresses", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get activity logs", annotations=READ_ONLY)
     def get_activity_logs(page: int = 1, page_size: int = 10) -> str:
         """Get recent activity logs from the watchTowr Platform.
 
@@ -81,7 +82,7 @@ def register_organization_tools(mcp):
             )
 
             if not hasattr(response, 'data') or not response.data:
-                return "No activity logs found."
+                return no_results(response, page, "No activity logs found.")
 
             total = get_total(response)
             lines = [_format_log_entry(log) for log in response.data]
@@ -94,7 +95,7 @@ def register_organization_tools(mcp):
         except Exception as e:
             raise_tool_error("retrieving activity logs", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Search activity logs", annotations=READ_ONLY)
     def search_activity_logs(
         search: str = None,
         types: str = None,
@@ -110,7 +111,7 @@ def register_organization_tools(mcp):
 
         Args:
             search: Search by description keyword.
-            types: Comma-separated subject types.
+            types: Comma-separated activity log type keys in PascalCase (e.g. SuccessfulLogin, UserInvite, FindingStatusChange, AssetStatusChange, ReportGenerated). Log entries show a readable label such as "Successful Login", not the key.
             user_ids: Comma-separated user IDs.
             created_from: Start date (YYYY-MM-DD).
             created_to: End date (YYYY-MM-DD).
@@ -135,7 +136,7 @@ def register_organization_tools(mcp):
             response = api.get_list_activity_logs(**kwargs)
 
             if not hasattr(response, 'data') or not response.data:
-                return "No activity logs match the criteria."
+                return no_results(response, page, "No activity logs match the criteria.")
 
             total = get_total(response)
             lines = [_format_log_entry(log) for log in response.data]
@@ -148,7 +149,7 @@ def register_organization_tools(mcp):
         except Exception as e:
             raise_tool_error("searching activity logs", e)
 
-    @mcp.tool()
+    @mcp.tool(title="List business units", annotations=READ_ONLY)
     def list_business_units(
         search: str = None,
         page: int = 1,
@@ -170,7 +171,7 @@ def register_organization_tools(mcp):
             response = api.get_list_business_unit(**kwargs)
 
             if not hasattr(response, 'data') or not response.data:
-                return "No business units found."
+                return no_results(response, page, "No business units found.")
 
             total = get_total(response)
             lines = []
@@ -187,7 +188,7 @@ def register_organization_tools(mcp):
         except Exception as e:
             raise_tool_error("listing business units", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get business unit details", annotations=READ_ONLY)
     def get_business_unit_details(business_unit_id: int) -> str:
         """Get full details for a specific business unit.
 

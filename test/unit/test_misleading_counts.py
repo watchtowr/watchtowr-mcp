@@ -160,7 +160,7 @@ def test_findings_needing_assignment_counts_the_rest_from_the_rows_shown(tools, 
 
     out = tools["get_findings_needing_assignment"](page_size=5)
 
-    assert "  ... and 15 more" in out.splitlines()
+    assert "  ... and 15 more on later pages" in out.splitlines()
 
 
 def test_verified_count_uses_the_platforms_verified_set(tools, fake_platform):

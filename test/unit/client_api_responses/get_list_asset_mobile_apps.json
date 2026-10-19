@@ -1,0 +1,58 @@
+{
+  "api": "MobileApplicationsApi",
+  "method": "get_list_asset_mobile_apps",
+  "kwargs": {},
+  "response": {
+    "data": [
+      {
+        "type": "mobileApp",
+        "source": "M test (Seed Data)",
+        "status": "verified",
+        "created_at": "2024-12-20T08:00:24.000Z",
+        "id": "9",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "-",
+        "publisher": "-",
+        "platform": "-",
+        "app_id": "-",
+        "url": "-",
+        "s3path": "-",
+        "criticality": null,
+        "customProperties": []
+      },
+      {
+        "type": "mobileApp",
+        "source": "itnues (Seed Data)",
+        "status": "verified",
+        "created_at": "2024-12-20T07:59:37.000Z",
+        "id": "8",
+        "discovery_reason": null,
+        "businessUnits": [],
+        "metadata": {},
+        "name": "redacted-41",
+        "publisher": "",
+        "platform": "ios",
+        "app_id": "364500613",
+        "url": "-",
+        "s3path": "-",
+        "criticality": null,
+        "customProperties": []
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "count": 9,
+        "total": 9,
+        "per_page": 10,
+        "current_page": 1,
+        "total_pages": 1,
+        "links": {
+          "previous": null,
+          "next": null
+        }
+      }
+    }
+  }
+}

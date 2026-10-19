@@ -27,7 +27,7 @@ def test_point_of_interest_without_a_discovery_date_has_no_discovered_line(tools
     assert "Discovered:" not in out
 
 
-def _point_json(point_id: float) -> dict:
+def _point_json(point_id: int) -> dict:
     return {
         "id": point_id, "name": "installer-page", "type": "file", "url": "https://example.com/setup.exe",
         "discoveryDate": "2024-04-08T15:40:26Z", "assetId": None, "assetName": None, "assetType": None,
@@ -36,7 +36,7 @@ def _point_json(point_id: float) -> dict:
 
 
 def test_header_counts_points_not_output_lines(tools, fake_platform):
-    fake_platform.route(r"/points-of-interest/list$", JsonReply(page_of([_point_json(n) for n in (1.0, 2.0, 3.0)])))
+    fake_platform.route(r"/points-of-interest/list$", JsonReply(page_of([_point_json(n) for n in (1, 2, 3)])))
 
     out = tools["list_points_of_interest"]()
 

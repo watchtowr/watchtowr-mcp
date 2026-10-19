@@ -1,0 +1,25 @@
+{
+  "api": "SuspiciousDomainsApi",
+  "method": "get_suspicious_domain_details",
+  "kwargs": {
+    "id": 1
+  },
+  "response": {
+    "data": {
+      "id": 1,
+      "name": "redacted-42",
+      "discovery_reason": "char-replacement",
+      "status": "legitimate",
+      "created_at": "2023-02-03T10:16:09.000Z",
+      "whoisData": [
+        {
+          "id": 8,
+          "data": {
+            "message": "This is a private ip address"
+          },
+          "raw": "redacted-43"
+        }
+      ]
+    }
+  }
+}

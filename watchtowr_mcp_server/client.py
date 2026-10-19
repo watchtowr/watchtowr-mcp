@@ -112,6 +112,16 @@ UNREACHABLE_HINT = "cannot reach the watchTowr Platform - check WATCHTOWR_PLATFO
 WRITE_MAY_HAVE_HAPPENED = "the change may already have been made, check its current state before retrying"
 PLATFORM_MESSAGE_STATUSES = {400, 422}
 PLATFORM_MESSAGE_MAX_LENGTH = 200
+_IP_NOT_ALLOWED_HINTS = {
+    "IP address is not whitelisted to access this API": (
+        "the IP address of the machine running this MCP server is not on the Client API allow list - "
+        "add that machine's public IP address to the API Allow List on the Client API page"
+    ),
+    "Your IP address is not whitelisted to access this watchTowr Platform instance": (
+        "the IP address of the machine running this MCP server is not on the Dashboard IP whitelist - "
+        "add that machine's public IP address on the Dashboard IP Whitelisting page"
+    ),
+}
 _ADDITIONAL_RESPONSE_FIELD = re.compile(r"^Error due to additional fields \(not defined in (\w+)\) in the input: (.+)$")
 
 
@@ -149,9 +159,7 @@ def _connection_dropped(e: Exception) -> bool:
     return isinstance(e, urllib3.exceptions.ProtocolError)
 
 
-def _platform_message(e: ApiException) -> str | None:
-    if e.status not in PLATFORM_MESSAGE_STATUSES:
-        return None
+def _response_message(e: ApiException) -> str | None:
     try:
         message = json.loads(e.body or "").get("message")
     except (ValueError, AttributeError):
@@ -160,8 +168,14 @@ def _platform_message(e: ApiException) -> str | None:
         message = "; ".join(str(part) for part in message)
     if not isinstance(message, str):
         return None
-    message = " ".join(message.split())
-    if not message:
+    return " ".join(message.split()) or None
+
+
+def _platform_message(e: ApiException) -> str | None:
+    if e.status not in PLATFORM_MESSAGE_STATUSES:
+        return None
+    message = _response_message(e)
+    if message is None:
         return None
     if len(message) > PLATFORM_MESSAGE_MAX_LENGTH:
         message = message[:PLATFORM_MESSAGE_MAX_LENGTH].rstrip() + "..."
@@ -202,7 +216,7 @@ def api_error_summary(e: Exception) -> str | None:
     if status == 0:
         return UNREACHABLE_HINT
     if status == 401:
-        hint = _unauthorized_hint()
+        hint = _IP_NOT_ALLOWED_HINTS.get(_response_message(e) or "") or _unauthorized_hint()
     else:
         hint = _STATUS_HINTS.get(status) or ("platform error, retry later" if status >= 500 else None)
     summary = f"HTTP {status} {e.reason or ''}".rstrip()
@@ -443,12 +457,32 @@ def get_api_client() -> ApiClient:
 def get_total(response) -> int | None:
     """Extract pagination total from a paginated API response."""
     meta = getattr(response, 'meta', None)
+    if isinstance(meta, dict):
+        total = (meta.get('pagination') or {}).get('total')
+        return int(total) if total is not None else None
     if meta:
         pagination = getattr(meta, 'pagination', None)
         if pagination:
             total = getattr(pagination, 'total', None)
             return int(total) if total is not None else None
     return None
+
+
+def past_the_end(page: int, total: int | None) -> str:
+    return f"Page {page} is past the end (total {total})." if total is not None else f"Page {page} is past the end."
+
+
+def no_results(response, page: int | None, none_found: str) -> str:
+    """The empty-page message: past the end for a later page of a non-empty result, else `none_found`."""
+    total = get_total(response)
+    if not page or page <= 1 or not total:
+        return none_found
+    return past_the_end(page, total)
+
+
+def check_page(page: int) -> None:
+    if page < 1:
+        raise ToolError(f"page must be 1 or more, got {page}.")
 
 
 def parse_date(date_str: str | None) -> datetime | None:
@@ -562,6 +596,87 @@ def portal_line(kind: str, entity_id, asset_type: str | None = None) -> list[str
     return [f"Portal: {url}"] if url else []
 
 
+def format_finding_ids(ids: list[int], shown: int = 5) -> str:
+    more = f", +{len(ids) - shown} more" if len(ids) > shown else ""
+    return ", ".join(str(i) for i in ids[:shown]) + more
+
+
+def _asset_type_key(asset_type) -> str:
+    key = str(asset_type).lower().replace(" ", "").replace("_", "")
+    return "ip" if key == "ipaddress" else key
+
+
+_FINDING_ASSET_TYPES = {_asset_type_key(t): t for t in (
+    "domain", "subdomain", "ip", "ipRange", "port", "repository", "cloudStorage",
+    "container", "mobileApp", "saasPlatform",
+)}
+
+
+def finding_asset_type(asset_type: str) -> str | None:
+    """The findings API `asset_types` value for an asset type ("ip_range" -> "ipRange"), or None."""
+    return _FINDING_ASSET_TYPES.get(_asset_type_key(asset_type))
+
+
+def _is_port_finding(data: dict) -> bool:
+    """The API overwrites a port's `type` with its protocol (TCP/UDP), so ports are told apart by ip_id."""
+    return 'ip_id' in data
+
+
+def is_affected_asset(finding, asset_type: str, asset_id) -> bool:
+    """True when the finding's affected asset is exactly this one.
+
+    The API's asset_title filter is a substring match (192.0.2.1 also hits 192.0.2.10),
+    so callers filter its results down by type and ID. An IP's findings include those on
+    its ports, as the API returns them for asset_types=ip.
+    """
+    affected = getattr(finding, 'affected', None)
+    data = affected.get('data') if isinstance(affected, dict) else getattr(affected, 'data', None)
+    if not isinstance(data, dict):
+        return False
+    wanted = _asset_type_key(asset_type)
+    if _is_port_finding(data):
+        owner_id = data.get('ip_id') if wanted == "ip" else data.get('id')
+        return wanted in ("ip", "port") and str(owner_id) == str(asset_id)
+    return _asset_type_key(data.get('type', '')) == wanted and str(data.get('id')) == str(asset_id)
+
+
+EXACT_MATCH_MAX_PAGES = 3
+EXACT_MATCH_PAGE_SIZE = 30
+
+
+def exact_asset_findings(findings_api, asset_name: str, asset_type: str, asset_id) -> tuple[list, int, int | None]:
+    """(exact matches, findings checked, API total) for a name search, reading more pages only while none match."""
+    matches, checked, total = [], 0, None
+    for page_no in range(1, EXACT_MATCH_MAX_PAGES + 1):
+        resp = findings_api.get_list_findings(
+            asset_title=asset_name, asset_types=finding_asset_type(asset_type), page=page_no, page_size=EXACT_MATCH_PAGE_SIZE)
+        page = resp.data if hasattr(resp, 'data') and resp.data else []
+        total = get_total(resp)
+        checked += len(page)
+        matches += [f for f in page if is_affected_asset(f, asset_type, asset_id)]
+        if matches or not page or not total or total <= checked:
+            break
+    return matches, checked, total
+
+
+def name_match_notes(checked: int, kept: int, total: int | None, what: str,
+                     where: str = "on similarly named assets") -> list[str]:
+    """Say what a substring-matching name search returned beyond the exact matches kept."""
+    notes = []
+    if checked > kept:
+        notes.append(f"Removed {checked - kept} {what} {where}.")
+    if total and total > checked:
+        notes.append(f"The API matched {total} {what} by name, including similar names; "
+                     f"only the first {checked} were checked, so more may exist.")
+    return notes
+
+
+def is_same_or_subdomain(name, domain: str) -> bool:
+    """True for the domain itself or a name under it on a label boundary (not notexample.com)."""
+    name, domain = str(name or '').lower(), domain.lower()
+    return name == domain or name.endswith("." + domain)
+
+
 _HIDDEN_CHAR_CATEGORIES = {"Cc", "Cf", "Co", "Cs", "Zl", "Zp"}
 _UNTRUSTED_MARKER = re.compile("untrusted-data", re.IGNORECASE)
 
@@ -608,21 +723,30 @@ def _expects_list(annotation) -> bool:
     return False
 
 
+def _takes_any_kwarg(params) -> bool:
+    return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
 def accepts_argument(method, name: str) -> bool:
     parameters = inspect.signature(method).parameters
-    return name in parameters or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values())
+    return name in parameters or _takes_any_kwarg(parameters)
 
 
 def supported_kwargs(method, kwargs: dict) -> dict:
-    """Drop kwargs the SDK method doesn't declare and coerce list-typed ones.
+    """Coerce list-typed kwargs and refuse filters the SDK method doesn't declare.
 
-    Asset list endpoints share most filters but differ on which they accept
-    (e.g. PortsApi has no `statuses`) and on the type expected (asset endpoints
-    want List[str] for `statuses`/`business_unit_ids`; findings/certs want a
-    comma-separated str). Filtering + coercing here lets a single call site
-    target every endpoint without crashing on the ones that disagree.
+    Asset list endpoints differ on the type expected (asset endpoints want
+    List[str] for `statuses`/`business_unit_ids`; findings/certs want a
+    comma-separated str), so coercing here lets one call site target every
+    endpoint. A filter the endpoint lacks is refused rather than dropped:
+    dropping it would return unfiltered rows as if they matched.
     """
     params = inspect.signature(method).parameters
+    if _takes_any_kwarg(params):
+        return dict(kwargs)
+    unsupported = sorted(k for k, v in kwargs.items() if k not in params and v is not None)
+    if unsupported:
+        raise ToolError(f"{method.__name__} does not support the filter(s) {', '.join(unsupported)}")
     out = {}
     for k, v in kwargs.items():
         if k not in params:

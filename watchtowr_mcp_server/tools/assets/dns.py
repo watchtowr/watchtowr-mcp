@@ -1,16 +1,23 @@
+from typing import Literal
+
 from watchtowr_api_sdk.api.dns_record_analysis_api import DNSRecordAnalysisApi
 
-from ...client import get_api_client, get_total, portal_link, supported_kwargs, untrusted, raise_tool_error
+from ...client import no_results, get_api_client, get_total, portal_link, supported_kwargs, untrusted, raise_tool_error
+from ...constants import READ_ONLY
 
 
 def register_asset_dns_tools(mcp):
 
-    @mcp.tool()
+    @mcp.tool(title="Get asset DNS records", annotations=READ_ONLY)
     def get_asset_dns_records(
         asset_name: str,
         record_types: str = None,
         page: int = 1,
         page_size: int = 20,
+        sort_by: Literal["createdAt"] = None,
+        sort_order: Literal["ASC", "DESC"] = None,
+        start_date: str = None,
+        end_date: str = None,
     ) -> str:
         """Get DNS records associated with a specific asset by name.
 
@@ -18,9 +25,13 @@ def register_asset_dns_tools(mcp):
 
         Args:
             asset_name: The asset name to look up (e.g. "example.com", "192.168.1.1").
-            record_types: Comma-separated record types to filter (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV).
+            record_types: Comma-separated record types: A, AAAA, CNAME, MX, NS, PTR, TXT.
             page: Page number.
             page_size: Results per page (max 30).
+            sort_by: Sort field: createdAt.
+            sort_order: Sort direction: ASC or DESC.
+            start_date: Start date filter (YYYY-MM-DD or ISO datetime).
+            end_date: End date filter (YYYY-MM-DD or ISO datetime). A bare date means the start of that day, so records from that day are excluded.
         """
         try:
             api = DNSRecordAnalysisApi(get_api_client())
@@ -31,13 +42,21 @@ def register_asset_dns_tools(mcp):
             }
             if record_types:
                 kwargs["record_types"] = record_types
+            if sort_by:
+                kwargs["sort_by"] = sort_by
+            if sort_order:
+                kwargs["sort_order"] = sort_order
+            if start_date:
+                kwargs["start_date"] = start_date
+            if end_date:
+                kwargs["end_date"] = end_date
 
             response = api.get_list_dns_records(
                 **supported_kwargs(api.get_list_dns_records, kwargs)
             )
 
             if not hasattr(response, "data") or not response.data:
-                return f"No DNS records found for {asset_name}."
+                return no_results(response, page, f"No DNS records found for {asset_name}.")
 
             total = get_total(response) or 0
             lines = [f"DNS Records for {asset_name} ({len(response.data)} of {total}):"]
@@ -57,7 +76,7 @@ def register_asset_dns_tools(mcp):
         except Exception as e:
             raise_tool_error("running get_asset_dns_records", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Search DNS records", annotations=READ_ONLY)
     def search_dns_records(
         record_name: str = None,
         record_value: str = None,
@@ -65,8 +84,8 @@ def register_asset_dns_tools(mcp):
         business_unit_ids: str = None,
         start_date: str = None,
         end_date: str = None,
-        sort_by: str = None,
-        sort_order: str = None,
+        sort_by: Literal["createdAt"] = None,
+        sort_order: Literal["ASC", "DESC"] = None,
         page: int = 1,
         page_size: int = 20,
     ) -> str:
@@ -77,12 +96,12 @@ def register_asset_dns_tools(mcp):
         Args:
             record_name: Filter by record name (e.g. subdomain or domain).
             record_value: Filter by record value (e.g. IP address).
-            record_types: Comma-separated record types (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV).
+            record_types: Comma-separated record types: A, AAAA, CNAME, MX, NS, PTR, TXT.
             business_unit_ids: Comma-separated business unit IDs.
-            start_date: Start date filter (YYYY-MM-DD).
-            end_date: End date filter (YYYY-MM-DD).
-            sort_by: Sort field.
-            sort_order: Sort direction (asc/desc).
+            start_date: Start date filter (YYYY-MM-DD or ISO datetime).
+            end_date: End date filter (YYYY-MM-DD or ISO datetime). A bare date means the start of that day, so records from that day are excluded.
+            sort_by: Sort field: createdAt.
+            sort_order: Sort direction: ASC or DESC.
             page: Page number.
             page_size: Results per page (max 30).
         """
@@ -111,7 +130,7 @@ def register_asset_dns_tools(mcp):
             )
 
             if not hasattr(response, "data") or not response.data:
-                return "No DNS records found."
+                return no_results(response, page, "No DNS records found.")
 
             total = get_total(response) or 0
             lines = [f"DNS Records (global search, {len(response.data)} of {total}):"]

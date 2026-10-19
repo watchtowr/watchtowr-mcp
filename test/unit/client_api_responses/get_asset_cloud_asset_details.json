@@ -1,0 +1,30 @@
+{
+  "api": "CloudIntegrationAssetsApi",
+  "method": "get_asset_cloud_asset_details",
+  "kwargs": {
+    "id": 2
+  },
+  "response": {
+    "data": {
+      "type": "cloudAsset",
+      "source": "AWS Console",
+      "status": "verified",
+      "created_at": "2024-06-07T10:47:49.000Z",
+      "id": "2",
+      "discovery_reason": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
+      "businessUnits": [],
+      "metadata": {
+        "region": "us-east-1",
+        "availabilityZone": "redacted-52"
+      },
+      "name": "redacted-53",
+      "provider": "aws",
+      "super_type": "Compute",
+      "sub_type": "ec2",
+      "hostname": "redacted-54",
+      "cloud_resource_id": "112233",
+      "criticality": null,
+      "customProperties": []
+    }
+  }
+}

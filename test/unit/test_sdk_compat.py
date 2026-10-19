@@ -160,7 +160,7 @@ def test_suspicious_domain_accepts_whois_message_and_list_dnssec():
             "raw": "",
         }],
     })
-    assert suspicious_domain.whois_data[0].data.to_dict()["dnssec"] == "signedDelegation, unsigned"
+    assert suspicious_domain.whois_data[0].data.to_dict()["dnssec"] == ["signedDelegation", "unsigned"]
 
 
 PAGINATION_META = {

@@ -5,8 +5,8 @@ from watchtowr_api_sdk.api.findings_api import FindingsApi
 from watchtowr_api_sdk.api.activity_log_api import ActivityLogApi
 from watchtowr_api_sdk.models.update_client_finding_status_request_body import UpdateClientFindingStatusRequestBody
 
-from ..client import get_api_client, get_total, portal_link, severity_display, untrusted, raise_tool_error, item_error_summary, normalize_finding_status, parse_ids, utc_now
-from ..constants import MAX_BULK_FINDING_IDS, REMEDIATION_DATE_CAVEAT, SUMMARY_SEVERITIES
+from ..client import check_page, get_api_client, get_total, no_results, past_the_end, portal_link, severity_display, untrusted, raise_tool_error, item_error_summary, normalize_finding_status, parse_ids, utc_now
+from ..constants import DESTRUCTIVE_WRITE, MAX_BULK_FINDING_IDS, READ_ONLY, REMEDIATION_DATE_CAVEAT, SUMMARY_SEVERITIES, WRITE
 from ..failed_calls import PartialAnswer
 from .composite import _ASSET_API_MAP, _count
 
@@ -40,12 +40,13 @@ def _apply_to_each_finding(ids: list[int], apply, done: str, all_failed: str) ->
 
 def register_workflow_tools(mcp):
 
-    @mcp.tool()
-    def get_recent_remediations(days: int = 7, page_size: int = 30) -> str:
+    @mcp.tool(title="Get recent remediations", annotations=READ_ONLY)
+    def get_recent_remediations(days: int = 7, page: int = 1, page_size: int = 30) -> str:
         """List remediated findings last updated within the last N days (the platform has no remediation-date filter).
 
         Args:
             days: Number of days to look back (default 7).
+            page: Page number (default 1).
             page_size: Results per page (max 30).
         """
         try:
@@ -56,11 +57,12 @@ def register_workflow_tools(mcp):
             resp = findings_api.get_list_findings(
                 statuses="remediated",
                 updated_from=since,
+                page=page,
                 page_size=min(page_size, 30),
             )
 
             if not hasattr(resp, 'data') or not resp.data:
-                return f"No remediated findings updated in the last {days} days. {REMEDIATION_DATE_CAVEAT}"
+                return no_results(resp, page, f"No remediated findings updated in the last {days} days. {REMEDIATION_DATE_CAVEAT}")
 
             total = get_total(resp)
             lines = [f"Recently Remediated Findings (Last {days} Days):", REMEDIATION_DATE_CAVEAT, ""]
@@ -77,7 +79,7 @@ def register_workflow_tools(mcp):
         except Exception as e:
             raise_tool_error("retrieving recent remediations", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get daily digest", annotations=READ_ONLY)
     def get_daily_digest() -> str:
         """24-hour digest: new assets, new findings, and recent activity log entries.
 
@@ -138,7 +140,7 @@ def register_workflow_tools(mcp):
         except Exception as e:
             raise_tool_error("generating daily digest", e)
 
-    @mcp.tool(tags={"write"})
+    @mcp.tool(tags={"write"}, title="Bulk retest findings", annotations=WRITE)
     def bulk_retest_findings(finding_ids: str) -> str:
         """Trigger retests for multiple findings at once (at most 25 unique IDs per call).
 
@@ -158,13 +160,13 @@ def register_workflow_tools(mcp):
         except Exception as e:
             raise_tool_error("in bulk retest", e)
 
-    @mcp.tool(tags={"write"})
+    @mcp.tool(tags={"write"}, title="Bulk update finding status", annotations=DESTRUCTIVE_WRITE)
     def bulk_update_finding_status(finding_ids: str, status: str) -> str:
         """Update the status of multiple findings at once (at most 25 unique IDs per call).
 
         Args:
             finding_ids: Comma-separated finding IDs to update. At most 25 unique IDs; duplicates are ignored.
-            status: The new status value to apply to all findings.
+            status: The new status for every finding: confirmed, unconfirmed, remediated, risk-accepted, closed, asset-no-longer-tracked (case-insensitive).
         """
         ids = _parse_bulk_finding_ids(finding_ids)
         status_lower = normalize_finding_status(status)
@@ -181,18 +183,21 @@ def register_workflow_tools(mcp):
         except Exception as e:
             raise_tool_error("in bulk status update", e)
 
-    @mcp.tool()
+    @mcp.tool(title="Get actionable findings queue", annotations=READ_ONLY)
     def get_actionable_findings_queue(
         assignee: str = None,
+        page: int = 1,
         page_size: int = 30,
     ) -> str:
         """Prioritized queue of open findings sorted by severity then age, optionally filtered by assignee.
 
         Args:
             assignee: Filter by assignee name. Omit for all.
-            page_size: Results per page (max 30).
+            page: Page number, applied to each severity (default 1).
+            page_size: Results per page per severity (max 30).
         """
         try:
+            check_page(page)
             client = get_api_client()
             findings_api = FindingsApi(client)
             lines = []
@@ -200,10 +205,12 @@ def register_workflow_tools(mcp):
 
             all_findings = []
             platform_total = 0
+            more_on_later_pages = False
             for sev in SUMMARY_SEVERITIES:
                 kwargs = {
                     "severities": sev,
                     "statuses": "confirmed",
+                    "page": page,
                     "page_size": min(page_size, 30),
                 }
                 if assignee:
@@ -211,13 +218,17 @@ def register_workflow_tools(mcp):
 
                 with parts.part(f"{severity_display(sev)} findings"):
                     resp = findings_api.get_list_findings(**kwargs)
-                    if hasattr(resp, 'data') and resp.data:
-                        platform_total += get_total(resp) or len(resp.data)
-                        for f in resp.data:
-                            all_findings.append((severity_display(sev), f))
+                    page_rows = resp.data if hasattr(resp, 'data') and resp.data else []
+                    count = get_total(resp) or len(page_rows)
+                    platform_total += count
+                    more_on_later_pages |= count > (page - 1) * min(page_size, 30) + len(page_rows)
+                    for f in page_rows:
+                        all_findings.append((severity_display(sev), f))
 
             parts.raise_if_every_part_failed()
             if not all_findings and not parts.incomplete_lines:
+                if page > 1 and platform_total:
+                    return past_the_end(page, platform_total)
                 return "No actionable findings in queue." + (f" (assignee: {assignee})" if assignee else "")
 
             header = "Actionable Findings Queue"
@@ -227,7 +238,7 @@ def register_workflow_tools(mcp):
             lines.extend(parts.incomplete_lines)
             lines.append(f"Total: {parts.total(platform_total, 0)}")
             if len(all_findings) < platform_total:
-                lines.append(f"Showing {len(all_findings)}: the first {min(page_size, 30)} of each severity.")
+                lines.append(f"Showing {len(all_findings)}: page {page} of each severity, {min(page_size, 30)} per severity.")
             lines.append("")
 
             for idx, (sev, f) in enumerate(all_findings, 1):
@@ -238,24 +249,30 @@ def register_workflow_tools(mcp):
                 lines.append(f"{idx}. [{sev}] {title}")
                 lines.append(f"   ID: {fid} | Status: {status} | Created: {created}{portal_link('finding', fid)}")
 
+            if more_on_later_pages:
+                lines.append(f"\nPass page={page + 1} for more.")
             return "\n".join(lines)
         except Exception as e:
             raise_tool_error("generating findings queue", e)
 
-    @mcp.tool()
-    def get_findings_needing_assignment(page_size: int = 30) -> str:
+    @mcp.tool(title="Get findings needing assignment", annotations=READ_ONLY)
+    def get_findings_needing_assignment(page: int = 1, page_size: int = 10) -> str:
         """All open findings with no assignee, grouped by severity — the triage inbox.
 
         Args:
-            page_size: Results per page per severity (max 30).
+            page: Page number, applied to each severity (default 1).
+            page_size: Results per page per severity (default 10, max 30).
         """
         try:
+            check_page(page)
             client = get_api_client()
             findings_api = FindingsApi(client)
 
+            page_size = min(page_size, 30)
             lines = ["Findings Needing Assignment:", ""]
             total_unassigned = 0
             parts = PartialAnswer("Findings needing assignment")
+            rows_shown = 0
 
             for sev in SUMMARY_SEVERITIES:
                 display_sev = severity_display(sev)
@@ -264,25 +281,32 @@ def register_workflow_tools(mcp):
                         severities=sev,
                         statuses="confirmed",
                         assignee="No Assignee",
-                        page_size=min(page_size, 30),
+                        page=page,
+                        page_size=page_size,
                     )
-                    count = get_total(resp) or (len(resp.data) if hasattr(resp, 'data') and resp.data else 0)
+                    rows = resp.data if hasattr(resp, 'data') and resp.data else []
+                    count = get_total(resp) or len(rows)
                     total_unassigned += count
+                    rows_shown += len(rows)
 
-                    if count > 0:
+                    if count > 0 and not rows:
+                        lines.append(f"{display_sev} ({count}): none left on this page")
+                        lines.append("")
+                    elif rows:
                         lines.append(f"{display_sev} ({count}):")
-                        if hasattr(resp, 'data') and resp.data:
-                            shown = resp.data[:10]
-                            for f in shown:
-                                fid = getattr(f, 'id', '')
-                                title = getattr(f, 'title', 'No title')
-                                created = getattr(f, 'created_at', '')
-                                lines.append(f"  - [ID:{fid}] {title} (since {created}){portal_link('finding', fid)}")
-                            if count > len(shown):
-                                lines.append(f"  ... and {count - len(shown)} more")
+                        for f in rows:
+                            fid = getattr(f, 'id', '')
+                            title = getattr(f, 'title', 'No title')
+                            created = getattr(f, 'created_at', '')
+                            lines.append(f"  - [ID:{fid}] {title} (since {created}){portal_link('finding', fid)}")
+                        remaining = count - (page - 1) * page_size - len(rows)
+                        if remaining > 0:
+                            lines.append(f"  ... and {remaining} more on later pages")
                         lines.append("")
 
             parts.raise_if_every_part_failed()
+            if page > 1 and rows_shown == 0 and total_unassigned and not parts.incomplete_lines:
+                return past_the_end(page, total_unassigned)
             lines[1:1] = [*parts.incomplete_lines, f"Total Unassigned: {parts.total(total_unassigned, 0)}"]
             return "\n".join(lines)
         except Exception as e:
