@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 import watchtowr_api_sdk.api as sdk_apis
 from watchtowr_api_sdk.configuration import Configuration
+from watchtowr_api_sdk.models.hunt import Hunt
 
 from test.unit.conftest import JsonReply
 from test.unit.test_sdk_compat import PAGINATION_META, _hunt_payload
@@ -47,11 +48,12 @@ def test_every_fixture_names_the_sdk_call_that_returns_it():
         assert path.stem == fixture["method"], path.name
 
 
-def test_a_key_the_sdk_does_not_define_fails_the_replay():
+def test_a_key_the_sdk_does_not_define_is_dropped_from_the_replay():
     hunt = {**_hunt_payload("Misconfig"), "key_the_sdk_does_not_define": True}
 
-    with pytest.raises(UnexpectedPlatformResponseError, match="key_the_sdk_does_not_define"):
-        replay({**LIST_HUNTS, "response": {"data": [hunt], "meta": PAGINATION_META}})
+    hunts = replay({**LIST_HUNTS, "response": {"data": [hunt], "meta": PAGINATION_META}})
+
+    assert hunts.data[0].model_dump(by_alias=True) == Hunt.from_dict(_hunt_payload("Misconfig")).model_dump(by_alias=True)
 
 
 def test_a_null_required_field_fails_the_replay():

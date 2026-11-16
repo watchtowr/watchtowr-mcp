@@ -2,7 +2,7 @@ from typing import Literal
 
 from watchtowr_api_sdk.api.service_discovery_api import ServiceDiscoveryApi
 
-from ..client import no_results, get_api_client, get_total, parse_date, portal_link, untrusted, raise_tool_error, parse_ids
+from ..client import no_results, get_api_client, get_total, parse_date, portal_link, untrusted, raise_tool_error, parse_ids, paging_lines, THIS_TOOLS_FILTERS
 from ..constants import READ_ONLY
 
 
@@ -44,7 +44,7 @@ def register_service_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("listing technology statistics", e)
 
@@ -179,6 +179,6 @@ def register_service_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing services", e)

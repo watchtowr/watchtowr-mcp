@@ -12,7 +12,7 @@ from watchtowr_api_sdk.api.api_documentation_api import APIDocumentationApi
 from watchtowr_api_sdk.api.package_managers_api import PackageManagersApi
 from watchtowr_api_sdk.api.cloud_integration_assets_api import CloudIntegrationAssetsApi
 
-from ...client import no_results, get_api_client, portal_line, untrusted, raise_tool_error
+from ...client import no_results, get_api_client, portal_line, untrusted, raise_tool_error, paging_lines
 from ...constants import READ_ONLY
 
 
@@ -96,6 +96,6 @@ def register_asset_changelog_tools(mcp):
                     line += f" (by {user})"
                 lines.append(line)
 
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=None, exportable=False)])
         except Exception as e:
             raise_tool_error("running get_asset_changelog", e)

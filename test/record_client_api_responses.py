@@ -29,7 +29,6 @@ from watchtowr_mcp_server.sdk_compat import apply_watchtowr_sdk_compat_patches  
 
 OUT_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "unit" / "client_api_responses"
 ITEMS_KEPT_PER_LIST = 2
-NOT_JSON = {"export_pdf_for_finding"}
 
 IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 IPV6 = re.compile(r"(?<![\w:])[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}(?![\w:])", re.IGNORECASE)
@@ -146,7 +145,7 @@ def record() -> None:
     for module, class_name, method_name in SDK_CALLS:
         api_class = getattr(importlib.import_module(module), class_name)
         serializer = inspect.getsource(getattr(api_class, f"_{method_name}_serialize"))
-        if "method='GET'" in serializer and method_name not in NOT_JSON:
+        if "method='GET'" in serializer:
             gets.append((class_name, api_class, method_name))
     gets.sort(key=lambda call: call[2] in KWARGS_FOR or "id" in inspect.signature(getattr(call[1], call[2])).parameters)
 

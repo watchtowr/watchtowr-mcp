@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from fastmcp.exceptions import ToolError
 from watchtowr_api_sdk.api.ip_addresses_api import IPAddressesApi
@@ -31,7 +31,7 @@ from watchtowr_api_sdk.models.create_client_note_dto import CreateClientNoteDto
 from watchtowr_api_sdk.models.ip_range_values import IpRangeValues
 from watchtowr_api_sdk.models.filter_by_business_unit_input import FilterByBusinessUnitInput
 
-from ...client import no_results, get_api_client, get_total, parse_date, format_bus, portal_line, portal_link, untrusted, refuse_write_action_in_read_only_mode, supported_kwargs, raise_tool_error
+from ...client import no_results, get_api_client, get_total, parse_date, format_bus, portal_line, portal_link, untrusted, refuse_write_action_in_read_only_mode, supported_kwargs, raise_tool_error, paging_lines, MAX_ASSET_PAGE_SIZE, THIS_TOOLS_FILTERS, list_banner, BANNERS_CUT_NOTE
 from ...constants import DESTRUCTIVE_WRITE, READ_ONLY, WRITE
 
 
@@ -169,7 +169,7 @@ def _format_custom_properties(asset_type, asset_id, response, page):
             f"{getattr(item, 'key', 'N/A')} = {getattr(item, 'value', '')} "
             f"(preset: {str(getattr(item, 'is_preset', False)).lower()})"
         )
-    return "\n".join(lines)
+    return "\n".join([*lines, *paging_lines(response, page, 30, narrow_with=None, exportable=False)])
 
 
 def _format_notes(asset_type, asset_id, response, page):
@@ -184,13 +184,13 @@ def _format_notes(asset_type, asset_id, response, page):
         last_modified = getattr(item, "last_modified", None)
         modified = getattr(last_modified, "actual_instance", last_modified) or "N/A"
         lines.append(f"  • [ID: {getattr(item, 'id', 'N/A')}] \"{title}\" - {note[:80]} (by {author}, {modified})")
-    return "\n".join(lines)
+    return "\n".join([*lines, *paging_lines(response, page, 30, narrow_with=None, exportable=False)])
 
 def _build_asset_kwargs(page, page_size, asset_name=None, statuses=None,
                         business_unit_ids=None, created_from=None, created_to=None,
                         source=None,
                         custom_property_key=None, custom_property_value=None):
-    kwargs = {"page": page, "page_size": min(page_size, 30)}
+    kwargs = {"page": page, "page_size": min(page_size, MAX_ASSET_PAGE_SIZE)}
     if asset_name:
         kwargs["asset_name"] = asset_name
     if statuses:
@@ -210,6 +210,33 @@ def _build_asset_kwargs(page, page_size, asset_name=None, statuses=None,
     return kwargs
 
 
+
+class ReadOnlyAction(NamedTuple):
+    action: str
+    title: str
+    description: str
+    action_description: str
+    parameters: frozenset[str]
+
+
+# Tools that mix a read action with write actions, as read-only mode lists them. Keep in step with each
+# tool's docstring and `Args:`. Each tool also refuses its write actions in read-only mode, in case a
+# client calls one anyway.
+READ_ONLY_ACTIONS = {
+    "manage_engine_settings": ReadOnlyAction(
+        "get", "Get engine settings", "Get scan engine settings for a domain, subdomain, or IP asset.",
+        "get returns the current settings.", frozenset({"asset_type", "asset_id", "action"}),
+    ),
+    "manage_asset_custom_property": ReadOnlyAction(
+        "list", "List asset custom properties", "List custom properties on an asset.",
+        "list returns the asset's custom properties.", frozenset({"asset_type", "asset_id", "action", "page", "page_size"}),
+    ),
+    "manage_asset_notes": ReadOnlyAction(
+        "list", "List asset notes", "List notes on an asset.",
+        "list returns the asset's notes.", frozenset({"asset_type", "asset_id", "action", "page", "page_size"}),
+    ),
+}
+
 def register_asset_core_tools(mcp):
 
     # ── IP Addresses ──────────────────────────────────────────────
@@ -226,7 +253,7 @@ def register_asset_core_tools(mcp):
         custom_property_value: str = None,
         match_type: Literal["contains", "exact"] = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered IP addresses. Results are ordered newest first (highest IP address ID first).
 
@@ -241,7 +268,7 @@ def register_asset_core_tools(mcp):
             custom_property_value: Filter assets by custom property value.
             match_type: How asset_name matches: contains (default) or exact.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = IPAddressesApi(get_api_client())
@@ -273,7 +300,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing IP addresses", e)
 
@@ -325,7 +352,7 @@ def register_asset_core_tools(mcp):
         created_from: str = None,
         created_to: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List all discovered ports belonging to a specific IP address.
 
@@ -338,11 +365,11 @@ def register_asset_core_tools(mcp):
             created_from: Filter ports created after a given date and time.
             created_to: Filter ports created before a given date and time.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = IPAddressesApi(get_api_client())
-            kwargs = {"page": page, "page_size": min(page_size, 30)}
+            kwargs = {"page": page, "page_size": min(page_size, MAX_ASSET_PAGE_SIZE)}
             if include_closed_port is not None:
                 kwargs["include_closed_port"] = include_closed_port
             if include_no_service is not None:
@@ -358,6 +385,7 @@ def register_asset_core_tools(mcp):
 
             total = get_total(response)
             lines = []
+            banners_cut = False
             for p in response.data:
                 pid = getattr(p, 'id', '')
                 port = getattr(p, 'port', '?')
@@ -365,7 +393,10 @@ def register_asset_core_tools(mcp):
                 banner = getattr(p, 'banner', '')
                 status = getattr(p, 'status', None)
                 svc_str = f" ({untrusted(service)})" if service else ""
-                banner_str = f" - {untrusted(banner)}" if banner else ""
+                banner_str = ""
+                if banner:
+                    fenced, cut = list_banner(banner)
+                    banner_str, banners_cut = f" - {fenced}", banners_cut or cut
                 status_str = f" {status}" if status else ""
                 lines.append(f"• [ID:{pid}] :{port}{svc_str}{status_str}{_seen_and_bus(p)}{banner_str}")
 
@@ -373,7 +404,9 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header = "\n".join([header + "):", *portal_line('port', ip_id)])
-            return header + "\n" + "\n".join(lines)
+            notes = [BANNERS_CUT_NOTE] if banners_cut else []
+            paging = paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=False)
+            return "\n".join([header, *lines, *notes, *paging])
         except Exception as e:
             raise_tool_error("listing ports for IP", e)
 
@@ -427,7 +460,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered root domains.
 
@@ -441,7 +474,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = DomainsApi(get_api_client())
@@ -469,7 +502,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing domains", e)
 
@@ -525,7 +558,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered subdomains.
 
@@ -539,7 +572,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = SubdomainsApi(get_api_client())
@@ -567,7 +600,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing subdomains", e)
 
@@ -623,7 +656,7 @@ def register_asset_core_tools(mcp):
         include_closed_port: bool = None,
         include_no_service: bool = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered open ports across assets. The ports API has no status or source filter.
 
@@ -639,7 +672,7 @@ def register_asset_core_tools(mcp):
             include_closed_port: Include listings with closed ports.
             include_no_service: Include listings without a service.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = PortsApi(get_api_client())
@@ -659,6 +692,7 @@ def register_asset_core_tools(mcp):
 
             total = get_total(response)
             lines = []
+            banners_cut = False
             for p in response.data:
                 pid = getattr(p, 'id', '')
                 ip = getattr(p, 'ip', None) or 'Unknown'
@@ -668,14 +702,19 @@ def register_asset_core_tools(mcp):
                 ip_id = getattr(p, 'ip_id', None)
                 svc_str = f" ({untrusted(service)})" if service else ""
                 ip_id_str = f" (IP_ID:{int(ip_id)})" if ip_id is not None else ""
-                banner_str = f" - {untrusted(banner)}" if banner else ""
+                banner_str = ""
+                if banner:
+                    fenced, cut = list_banner(banner)
+                    banner_str, banners_cut = f" - {fenced}", banners_cut or cut
                 lines.append(f"• [ID:{pid}] {ip}:{port}{svc_str}{ip_id_str}{_seen_and_bus(p)}{banner_str}{portal_link('port', ip_id)}")
 
             header = f"Ports ({len(lines)}"
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            notes = [BANNERS_CUT_NOTE] if banners_cut else []
+            paging = paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=False)
+            return "\n".join([header, *lines, *notes, *paging])
         except Exception as e:
             raise_tool_error("listing ports", e)
 
@@ -726,7 +765,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered IP ranges with ASN and country information.
 
@@ -742,7 +781,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = IPRangesApi(get_api_client())
@@ -779,7 +818,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing IP ranges", e)
 
@@ -837,7 +876,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered cloud storage assets (S3, GCS, Azure blobs, etc.).
 
@@ -851,7 +890,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = CloudStorageApi(get_api_client())
@@ -882,7 +921,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing cloud storage assets", e)
 
@@ -941,7 +980,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered source code repositories.
 
@@ -955,7 +994,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = RepositoriesApi(get_api_client())
@@ -986,7 +1025,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing repositories", e)
 
@@ -1045,7 +1084,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered container registry images.
 
@@ -1059,7 +1098,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = ContainersApi(get_api_client())
@@ -1090,7 +1129,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing container assets", e)
 
@@ -1150,7 +1189,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered SaaS platform instances.
 
@@ -1164,7 +1203,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = SaaSPlatformsApi(get_api_client())
@@ -1193,7 +1232,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing SaaS platforms", e)
 
@@ -1251,7 +1290,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered mobile applications.
 
@@ -1267,7 +1306,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = MobileApplicationsApi(get_api_client())
@@ -1298,7 +1337,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing mobile applications", e)
 
@@ -1359,7 +1398,7 @@ def register_asset_core_tools(mcp):
         super_type: str = None,
         sub_type: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered cloud assets (AWS, GCP, Azure, etc.).
 
@@ -1376,7 +1415,7 @@ def register_asset_core_tools(mcp):
             super_type: Partial match on the cloud asset type (e.g. "database").
             sub_type: Partial match on the cloud asset sub-type (e.g. "RDS").
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = CloudIntegrationAssetsApi(get_api_client())
@@ -1411,7 +1450,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing cloud assets", e)
 
@@ -1476,7 +1515,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered API documentation assets.
 
@@ -1490,7 +1529,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = APIDocumentationApi(get_api_client())
@@ -1519,7 +1558,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing API documentations", e)
 
@@ -1570,7 +1609,7 @@ def register_asset_core_tools(mcp):
         custom_property_key: str = None,
         custom_property_value: str = None,
         page: int = 1,
-        page_size: int = 30,
+        page_size: int = MAX_ASSET_PAGE_SIZE,
     ) -> str:
         """List discovered package manager registry assets.
 
@@ -1584,7 +1623,7 @@ def register_asset_core_tools(mcp):
             custom_property_key: Filter assets by custom property key.
             custom_property_value: Filter assets by custom property value.
             page: Page number.
-            page_size: Results per page (max 30).
+            page_size: Results per page (default and max 100).
         """
         try:
             api = PackageManagersApi(get_api_client())
@@ -1613,7 +1652,7 @@ def register_asset_core_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, MAX_ASSET_PAGE_SIZE), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing package managers", e)
 
@@ -1659,6 +1698,7 @@ def register_asset_core_tools(mcp):
             raise_tool_error("retrieving package manager details", e)
 
     # ── Generic Asset Management Tools ─────────────────────────────
+    # The mixed read/write tools here are listed in read-only mode as READ_ONLY_ACTIONS describes them.
 
     @mcp.tool(title="Manage engine settings", annotations=DESTRUCTIVE_WRITE)
     def manage_engine_settings(
@@ -1785,7 +1825,7 @@ def register_asset_core_tools(mcp):
     def manage_asset_custom_property(
         asset_type: AssetType,
         asset_id: int,
-        action: Literal["list", "create", "update", "delete"],
+        action: Literal["list", "create", "update", "delete"] = "list",
         custom_property_id: int = None,
         key: str = None,
         value: str = None,
@@ -1806,6 +1846,7 @@ def register_asset_core_tools(mcp):
             page: Page number (list only).
             page_size: Results per page (list only, max 30).
         """
+        refuse_write_action_in_read_only_mode(action, "list")
         if action == "create" and not key:
             raise ToolError("key is required when action is 'create'")
         if action == "create" and value is None:
@@ -1817,7 +1858,6 @@ def register_asset_core_tools(mcp):
                 raise ToolError("key is required when action is 'update'")
         if action == "delete" and custom_property_id is None:
             raise ToolError("custom_property_id is required when action is 'delete'")
-        refuse_write_action_in_read_only_mode(action, "list")
 
         try:
             api = ASSET_API_CLASSES[asset_type](get_api_client())
@@ -1854,7 +1894,7 @@ def register_asset_core_tools(mcp):
     def manage_asset_notes(
         asset_type: AssetType,
         asset_id: int,
-        action: Literal["list", "create", "update", "delete"],
+        action: Literal["list", "create", "update", "delete"] = "list",
         note_id: int = None,
         title: str = None,
         note: str = None,
@@ -1873,6 +1913,7 @@ def register_asset_core_tools(mcp):
             page: Page number (list only).
             page_size: Results per page (list only, max 30).
         """
+        refuse_write_action_in_read_only_mode(action, "list")
         if action == "create" and not note:
             raise ToolError("note is required when action is 'create'")
         if action == "update":
@@ -1882,7 +1923,6 @@ def register_asset_core_tools(mcp):
                 raise ToolError("note is required when action is 'update'")
         if action == "delete" and note_id is None:
             raise ToolError("note_id is required when action is 'delete'")
-        refuse_write_action_in_read_only_mode(action, "list")
 
         try:
             api = ASSET_API_CLASSES[asset_type](get_api_client())

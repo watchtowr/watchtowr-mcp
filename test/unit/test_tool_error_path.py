@@ -83,7 +83,7 @@ def _minimal_args(fn, name: str) -> dict:
     return args
 
 
-def _tool_names() -> list[str]:
+def _tools_that_call_the_platform() -> list[str]:
     from test.conftest import ToolCapture
     from watchtowr_mcp_server.tools import register_all_tools
 
@@ -92,7 +92,7 @@ def _tool_names() -> list[str]:
     return sorted(capture.tools)
 
 
-@pytest.mark.parametrize("tool_name", _tool_names())
+@pytest.mark.parametrize("tool_name", _tools_that_call_the_platform())
 def test_tool_reaches_sdk_transport(tool_name, tools, transport_calls):
     fn = tools[tool_name]
     with pytest.raises((OfflineTransport, ToolError)):

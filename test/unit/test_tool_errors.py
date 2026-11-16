@@ -281,14 +281,6 @@ def test_invalid_write_argument_lists_the_valid_values_without_sending_a_request
     assert "watchTowr Platform" not in _text(result)
 
 
-def test_unknown_response_field_names_the_model_and_field(caplog):
-    error = _platform_response_error({**ENGINE_SETTINGS, "newEngineSetting": True})
-    assert api_error_summary(error) == (
-        "unexpected response from the watchTowr Platform (ClientEngineSettings: newEngineSetting)"
-    )
-    assert "ClientEngineSettings: newEngineSetting" in caplog.text
-
-
 @pytest.mark.parametrize(
     "error",
     [

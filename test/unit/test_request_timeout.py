@@ -15,11 +15,12 @@ from watchtowr_api_sdk.api.findings_api import FindingsApi
 import watchtowr_mcp_server.client as client_module
 from watchtowr_mcp_server.client import (
     DEFAULT_REQUEST_TIMEOUT,
+    PARALLEL_REQUESTS_PER_TOOL_CALL,
     UNREACHABLE_HINT,
     api_error_summary,
     request_timeout,
 )
-from test.unit.test_tool_error_path import _minimal_args, _tool_names
+from test.unit.test_tool_error_path import _minimal_args, _tools_that_call_the_platform
 from test.unit.test_tool_errors import _call_tool_over_mcp
 from watchtowr_mcp_server.mcp import create_server
 
@@ -42,7 +43,7 @@ def sent_timeouts(monkeypatch) -> list:
     return timeouts
 
 
-@pytest.mark.parametrize("tool_name", _tool_names())
+@pytest.mark.parametrize("tool_name", _tools_that_call_the_platform())
 def test_every_tool_request_carries_the_default_timeout(tool_name, tools, sent_timeouts):
     fn = tools[tool_name]
     with contextlib.suppress(OfflineTransport, ToolError):
@@ -323,7 +324,7 @@ def test_after_one_request_gets_no_answer_the_rest_of_the_tool_call_is_skipped(m
     text = result.content[0].text
     assert result.is_error
     assert "IP Addresses failed: no answer from the watchTowr Platform within 0.3 seconds" in text
-    assert "Domains failed: skipped because an earlier request in this tool call got no answer" in text
+    assert "Package Managers failed: skipped because an earlier request in this tool call got no answer" in text
     assert elapsed < 1.5, f"took {elapsed:.1f}s"
 
 
@@ -348,9 +349,11 @@ def test_the_rest_of_the_tool_call_is_skipped_only_when_the_platform_asks_to_bac
         result = _call_tool_over_mcp("get_new_assets_since", {"days": 7})
 
     text = result.content[0].text
-    skipped = "Domains failed: skipped because the watchTowr Platform rate limited an earlier request in this tool call"
+    skipped = (
+        "Package Managers failed: skipped because the watchTowr Platform rate limited an earlier request in this tool call"
+    )
     assert (skipped in text) == rest_of_call_skipped
-    assert (len(answered) == 1) == rest_of_call_skipped
+    assert (len(answered) <= PARALLEL_REQUESTS_PER_TOOL_CALL) == rest_of_call_skipped
 
 
 def test_the_next_tool_call_tries_the_platform_again(monkeypatch, silent_server):

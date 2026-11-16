@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import re
 
-from test.unit.conftest import JsonReply, page_of
-from test.unit.test_portal_links import _finding_json
+from test.unit.conftest import JsonReply, finding_json, page_of
 
 FENCE = re.compile(r"<untrusted-data-[0-9a-f]+>(.*?)</untrusted-data-[0-9a-f]+>")
 BUSINESS_UNITS = [{"id": 3, "name": "Retail"}, {"id": 4, "name": "Payments"}]
@@ -69,7 +68,7 @@ def test_search_capabilities_shows_hunt_id(tools, fake_platform):
 
 
 def _findings(fake_platform, titles_and_ids: list[tuple[str, int]]):
-    findings = [{**_finding_json(fid), "title": title} for title, fid in titles_and_ids]
+    findings = [{**finding_json(fid), "title": title} for title, fid in titles_and_ids]
     fake_platform.route(r"/findings/list$", JsonReply(page_of(findings)))
     fake_platform.route(r"/certificates/list$", JsonReply(page_of([])))
 

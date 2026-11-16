@@ -1,5 +1,6 @@
 import json
 import re
+import threading
 from typing import NamedTuple
 from urllib.parse import urlsplit
 
@@ -66,11 +67,30 @@ def page_of(items: list) -> dict:
     }
 
 
+def finding_json(finding_id: int, affected: dict | None = None) -> dict:
+    return {
+        "id": finding_id, "title": "Example finding", "description": "", "impact": "", "finding_impact": "High",
+        "tags": [], "evidence": "", "recommendation": "", "severity": "high", "cvssv3_score": 0,
+        "cvssv3_metrics": "", "references": "", "status": "confirmed", "created_at": "2026-05-29T16:10:47Z",
+        "affected": {"data": affected or {"type": "domain", "id": "3", "name": "example.com"}},
+        "last_status_updated_at": "2026-05-29T16:10:47Z", "customProperties": [], "detection_rules": [],
+    }
+
+
+def port_json() -> dict:
+    return {
+        "type": "port", "created_at": "2026-05-29T16:10:47Z", "last_seen_at": "2026-05-29T16:10:47Z",
+        "id": "9", "ip": "192.0.2.1", "ip_id": 4, "port": 443, "service": "https", "status": "verified",
+        "businessUnits": [], "metadata": {},
+    }
+
+
 class FakePlatform:
     def __init__(self):
         self.requested_urls: list[str] = []
         self._routes: list[tuple[re.Pattern, str, JsonReply | BaseException]] = []
         self._failing_call: tuple[int, JsonReply | BaseException] | None = None
+        self._lock = threading.Lock()
 
     def route(self, path_pattern: str, outcome: JsonReply | BaseException, query_contains: str = "") -> None:
         self._routes.insert(0, (re.compile(path_pattern), query_contains, outcome))
@@ -79,8 +99,10 @@ class FakePlatform:
         self._failing_call = (call_number, outcome)
 
     def call_api(self, method, url, *args, **kwargs) -> RESTResponse:
-        self.requested_urls.append(url)
-        if self._failing_call and self._failing_call[0] == len(self.requested_urls):
+        with self._lock:
+            self.requested_urls.append(url)
+            call_number = len(self.requested_urls)
+        if self._failing_call and self._failing_call[0] == call_number:
             failure = self._failing_call[1]
             if isinstance(failure, BaseException):
                 raise failure

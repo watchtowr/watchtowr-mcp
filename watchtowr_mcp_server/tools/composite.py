@@ -1,4 +1,5 @@
 from datetime import timedelta
+from functools import partial
 from typing import NamedTuple
 
 from fastmcp.exceptions import ToolError
@@ -24,7 +25,7 @@ from watchtowr_api_sdk.api.package_managers_api import PackageManagersApi
 
 from watchtowr_api_sdk.exceptions import ApiException
 
-from ..client import _asset_type_key, check_page, get_api_client, exact_asset_findings, get_total, name_match_notes, no_results, past_the_end, format_bus, format_finding_ids, portal_line, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, utc_now
+from ..client import _asset_type_key, _is_port_finding, check_page, get_api_client, exact_asset_findings, get_total, name_match_notes, no_results, past_the_end, format_bus, format_finding_ids, portal_line, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, run_in_parallel, utc_now
 from ..constants import READ_ONLY, SUMMARY_SEVERITIES
 from ..failed_calls import PartialAnswer
 
@@ -65,6 +66,22 @@ def _count(api_instance, method_name, **kwargs):
     return get_total(response) or (len(response.data) if hasattr(response, 'data') and response.data else 0)
 
 
+def _asset_count_calls(client, **kwargs) -> list:
+    return [partial(_count, api_cls(client), method_name, **kwargs) for _, api_cls, method_name in _ASSET_API_MAP]
+
+
+def _new_assets_page(api_instance, method_name, since, page_size):
+    method = getattr(api_instance, method_name)
+    return method(**supported_kwargs(method, {"created_from": since, "page_size": page_size}))
+
+
+def _new_assets_page_calls(client, since, page_size) -> list:
+    return [
+        partial(_new_assets_page, api_cls(client), method_name, since, page_size)
+        for _, api_cls, method_name in _ASSET_API_MAP
+    ]
+
+
 def _cert_covers(cert_host: str, service_host: str) -> bool:
     service_host = service_host.lower()
     if cert_host.startswith("*."):
@@ -91,23 +108,28 @@ def register_composite_tools(mcp):
         try:
             client = get_api_client()
             parts = PartialAnswer("Attack surface summary")
+            findings_api = FindingsApi(client)
+            futures = run_in_parallel([
+                *_asset_count_calls(client),
+                *(partial(_count, findings_api, "get_list_findings", severities=severity) for severity in SUMMARY_SEVERITIES),
+            ])
+            asset_counts, severity_counts = futures[:len(_ASSET_API_MAP)], futures[len(_ASSET_API_MAP):]
 
             asset_lines = []
             total_assets = 0
-            for label, api_cls, method_name in _ASSET_API_MAP:
+            for (label, _, _), future in zip(_ASSET_API_MAP, asset_counts, strict=True):
                 with parts.part(label):
-                    count = _count(api_cls(client), method_name)
+                    count = future.result()
                     total_assets += count
                     asset_lines.append(f"  • {label}: {count}")
             assets_total = parts.total(total_assets, 0)
 
-            findings_api = FindingsApi(client)
             finding_lines = []
             total_findings = 0
             failures_before_findings = parts.failure_count()
-            for severity in SUMMARY_SEVERITIES:
+            for severity, future in zip(SUMMARY_SEVERITIES, severity_counts, strict=True):
                 with parts.part(f"{severity_display(severity)} findings"):
-                    count = _count(findings_api, "get_list_findings", severities=severity)
+                    count = future.result()
                     total_findings += count
                     finding_lines.append(f"  • {severity_display(severity)}: {count}")
             findings_total = parts.total(total_findings, failures_before_findings)
@@ -142,14 +164,11 @@ def register_composite_tools(mcp):
             lines = [f"New Assets Discovered (Last {days} Days):", ""]
             total_new = 0
             parts = PartialAnswer("New asset lookup")
+            pages = run_in_parallel(_new_assets_page_calls(client, since, 30))
 
-            for label, api_cls, method_name in _ASSET_API_MAP:
+            for (label, _, _), future in zip(_ASSET_API_MAP, pages, strict=True):
                 with parts.part(label):
-                    api = api_cls(client)
-                    method = getattr(api, method_name)
-                    response = method(**supported_kwargs(
-                        method, {"created_from": since, "page_size": 30}
-                    ))
+                    response = future.result()
 
                     count = get_total(response) or (
                         len(response.data) if hasattr(response, 'data') and response.data else 0
@@ -189,27 +208,32 @@ def register_composite_tools(mcp):
             client = get_api_client()
             since = utc_now() - timedelta(days=days)
             parts = PartialAnswer("Attack surface delta")
+            findings_api = FindingsApi(client)
+            futures = run_in_parallel([
+                *_asset_count_calls(client, created_from=since),
+                *(
+                    partial(_count, findings_api, "get_list_findings", severities=severity, created_from=since)
+                    for severity in SUMMARY_SEVERITIES
+                ),
+            ])
+            asset_counts, severity_counts = futures[:len(_ASSET_API_MAP)], futures[len(_ASSET_API_MAP):]
 
             total_new_assets = 0
             asset_lines = []
-            for label, api_cls, method_name in _ASSET_API_MAP:
+            for (label, _, _), future in zip(_ASSET_API_MAP, asset_counts, strict=True):
                 with parts.part(label):
-                    count = _count(api_cls(client), method_name, created_from=since)
+                    count = future.result()
                     if count > 0:
                         total_new_assets += count
                         asset_lines.append(f"  • {label}: +{count}")
             new_assets_total = parts.total(total_new_assets, 0)
 
-            findings_api = FindingsApi(client)
             total_new_findings = 0
             findings_lines = []
             failures_before_findings = parts.failure_count()
-            for severity in SUMMARY_SEVERITIES:
+            for severity, future in zip(SUMMARY_SEVERITIES, severity_counts, strict=True):
                 with parts.part(f"{severity_display(severity)} findings"):
-                    count = _count(
-                        findings_api, "get_list_findings",
-                        severities=severity, created_from=since,
-                    )
+                    count = future.result()
                     total_new_findings += count
                     findings_lines.append(f"  • {severity_display(severity)}: +{count}")
             new_findings_total = parts.total(total_new_findings, failures_before_findings)
@@ -256,19 +280,37 @@ def register_composite_tools(mcp):
             end_of_details = len(lines)
             lines.append("")
 
+            findings_api = FindingsApi(client)
+            futures = run_in_parallel([
+                *(
+                    partial(
+                        _count, findings_api, "get_list_findings",
+                        severities=severity, business_unit_ids=business_unit_ids, statuses="confirmed",
+                    )
+                    for severity in SUMMARY_SEVERITIES
+                ),
+                *_asset_count_calls(client, business_unit_ids=business_unit_ids),
+                partial(
+                    _count, ServiceDiscoveryApi(client), "get_list_service_listing",
+                    business_unit_ids=[business_unit_id],
+                ),
+                partial(_count, CertificatesApi(client), "get_list_certificates", business_unit_ids=business_unit_ids),
+                partial(
+                    _count, PointsOfInterestApi(client), "get_list_points_of_interest",
+                    business_unit_ids=business_unit_ids,
+                ),
+            ])
+            severity_counts = futures[:len(SUMMARY_SEVERITIES)]
+            asset_counts = futures[len(SUMMARY_SEVERITIES):-3]
+            svc_future, cert_future, poi_future = futures[-3:]
+
             # Unresolved findings by severity
             lines.append("Unresolved Findings:")
-            findings_api = FindingsApi(client)
             total_findings = 0
             failures_before_findings = parts.failure_count()
-            for severity in SUMMARY_SEVERITIES:
+            for severity, future in zip(SUMMARY_SEVERITIES, severity_counts, strict=True):
                 with parts.part(f"{severity_display(severity)} findings"):
-                    count = _count(
-                        findings_api, "get_list_findings",
-                        severities=severity,
-                        business_unit_ids=business_unit_ids,
-                        statuses="confirmed",
-                    )
+                    count = future.result()
                     total_findings += count
                     lines.append(f"  • {severity_display(severity)}: {count}")
             lines.append(f"  Total: {parts.total(total_findings, failures_before_findings)}")
@@ -278,12 +320,9 @@ def register_composite_tools(mcp):
             lines.append("Assets:")
             total_assets = 0
             failures_before_assets = parts.failure_count()
-            for label, api_cls, method_name in _ASSET_API_MAP:
+            for (label, _, _), future in zip(_ASSET_API_MAP, asset_counts, strict=True):
                 with parts.part(label):
-                    count = _count(
-                        api_cls(client), method_name,
-                        business_unit_ids=business_unit_ids,
-                    )
+                    count = future.result()
                     total_assets += count
                     if count > 0:
                         lines.append(f"  • {label}: {count}")
@@ -292,29 +331,17 @@ def register_composite_tools(mcp):
 
             # Services
             with parts.part("Services"):
-                svc_api = ServiceDiscoveryApi(client)
-                svc_count = _count(
-                    svc_api, "get_list_service_listing",
-                    business_unit_ids=[business_unit_id],
-                )
+                svc_count = svc_future.result()
                 lines.append(f"Services: {svc_count}")
 
             # Certificates
             with parts.part("Certificates"):
-                cert_api = CertificatesApi(client)
-                cert_count = _count(
-                    cert_api, "get_list_certificates",
-                    business_unit_ids=business_unit_ids,
-                )
+                cert_count = cert_future.result()
                 lines.append(f"Certificates: {cert_count}")
 
             # Points of interest
             with parts.part("Points of Interest"):
-                poi_api = PointsOfInterestApi(client)
-                poi_count = _count(
-                    poi_api, "get_list_points_of_interest",
-                    business_unit_ids=business_unit_ids,
-                )
+                poi_count = poi_future.result()
                 lines.append(f"Points of Interest: {poi_count}")
 
             parts.raise_if_every_part_failed()
@@ -375,8 +402,8 @@ def register_composite_tools(mcp):
 
             if isinstance(data, dict) and (data.get('id') or data.get('name') or data.get('type')):
                 lines.append("\n--- Associated Asset ---")
-                asset_type = data.get('type', '')
-                asset_name = data.get('name') or data.get('url') or data.get('iprange') or ''
+                asset_type = affected_asset_type(data)
+                asset_name = affected_asset_title(data)
                 asset_id = data.get('id')
                 lines.append(f"Asset Type: {asset_type}")
                 lines.append(f"Asset Name: {affected_asset_name(asset_type, asset_name)}")
@@ -556,9 +583,9 @@ def register_composite_tools(mcp):
                         elif affected is not None:
                             data = getattr(affected, 'data', None)
                         if isinstance(data, dict):
-                            asset_name = data.get('name') or data.get('url') or data.get('iprange') or ''
+                            asset_name = affected_asset_title(data)
                             if asset_name:
-                                lines.append(f"   Asset: {affected_asset_name(data.get('type', ''), asset_name)}{affected_asset_link(data)}")
+                                lines.append(f"   Asset: {affected_asset_name(affected_asset_type(data), asset_name)}{affected_asset_link(data)}")
                         if recommendation:
                             rem_preview = recommendation[:200].replace('\n', ' ')
                             lines.append(f"   Remediation: {untrusted(rem_preview)}")
@@ -594,26 +621,37 @@ def register_composite_tools(mcp):
             cert_api = CertificatesApi(client)
             lines = ["Critical Exposure Report", ""]
             parts = PartialAnswer("Critical exposure report")
+            now = utc_now()
+            futures = run_in_parallel([
+                *(partial(_count, findings_api, "get_list_findings", severities=severity) for severity in SUMMARY_SEVERITIES),
+                partial(_count, findings_api, "get_list_findings", tags="CISA-KEV"),
+                partial(
+                    _count, cert_api, "get_list_certificates",
+                    not_after_from=now, not_after_to=now + timedelta(days=30),
+                ),
+                partial(findings_api.get_list_findings, severities="critical,high", page_size=30),
+            ])
+            severity_counts = futures[:len(SUMMARY_SEVERITIES)]
+            kev_future, exp_future, top_future = futures[len(SUMMARY_SEVERITIES):]
 
             lines.append("Findings by Severity:")
-            for severity in SUMMARY_SEVERITIES:
+            for severity, future in zip(SUMMARY_SEVERITIES, severity_counts, strict=True):
                 with parts.part(f"{severity_display(severity)} findings"):
-                    count = _count(findings_api, "get_list_findings", severities=severity)
+                    count = future.result()
                     lines.append(f"  • {severity_display(severity)}: {count}")
             lines.append("")
 
             with parts.part("CISA-KEV findings"):
-                kev_count = _count(findings_api, "get_list_findings", tags="CISA-KEV")
+                kev_count = kev_future.result()
                 lines.append(f"CISA-KEV Findings: {kev_count}")
 
             with parts.part("Expiring certificates"):
-                now = utc_now()
-                exp_count = _count(cert_api, "get_list_certificates", not_after_from=now, not_after_to=now + timedelta(days=30))
+                exp_count = exp_future.result()
                 lines.append(f"Certificates Expiring (30 days): {exp_count}")
             lines.append("")
 
             with parts.part("Top recurring findings"):
-                resp = findings_api.get_list_findings(severities="critical,high", page_size=30)
+                resp = top_future.result()
                 if hasattr(resp, 'data') and resp.data:
                     title_ids = {}
                     for f in resp.data:
@@ -742,15 +780,21 @@ def register_composite_tools(mcp):
             rows_shown = 0
 
             page_size = min(page_size, 30)
-            for severity in SUMMARY_SEVERITIES[:2]:  # critical, high
+            severities = SUMMARY_SEVERITIES[:2]  # critical, high
+            pages = run_in_parallel([
+                partial(
+                    findings_api.get_list_findings,
+                    severities=severity,
+                    statuses="confirmed",
+                    assignee="No Assignee",
+                    page=page,
+                    page_size=page_size,
+                )
+                for severity in severities
+            ])
+            for severity, future in zip(severities, pages, strict=True):
                 with parts.part(f"{severity_display(severity)} findings"):
-                    resp = findings_api.get_list_findings(
-                        severities=severity,
-                        statuses="confirmed",
-                        assignee="No Assignee",
-                        page=page,
-                        page_size=page_size,
-                    )
+                    resp = future.result()
                     count = get_total(resp) or (len(resp.data) if hasattr(resp, 'data') and resp.data else 0)
                     total_unassigned += count
                     rows_shown += len(resp.data) if hasattr(resp, 'data') and resp.data else 0
@@ -788,14 +832,17 @@ def register_composite_tools(mcp):
             findings_api = FindingsApi(client)
             parts = PartialAnswer("Findings count by asset type")
 
+            futures = run_in_parallel([
+                partial(
+                    _count, findings_api, "get_list_findings",
+                    asset_types=asset_type.findings_type, statuses="confirmed",
+                )
+                for asset_type in ASSET_TYPES
+            ])
             counts = {}
-            for asset_type in ASSET_TYPES:
+            for asset_type, future in zip(ASSET_TYPES, futures, strict=True):
                 with parts.part(asset_type.label):
-                    counts[asset_type.findings_type] = _count(
-                        findings_api, "get_list_findings",
-                        asset_types=asset_type.findings_type,
-                        statuses="confirmed",
-                    )
+                    counts[asset_type.findings_type] = future.result()
 
             # The Client API adds port findings to any query for ip findings.
             if "ip" in counts:
@@ -845,14 +892,11 @@ def register_composite_tools(mcp):
             total_candidates = 0
             sampled_labels = []
             parts = PartialAnswer("Shadow IT lookup")
+            pages = run_in_parallel(_new_assets_page_calls(client, since, page_size))
 
-            for label, api_cls, method_name in _ASSET_API_MAP:
+            for (label, _, _), future in zip(_ASSET_API_MAP, pages, strict=True):
                 with parts.part(label):
-                    api = api_cls(client)
-                    method = getattr(api, method_name)
-                    response = method(**supported_kwargs(
-                        method, {"created_from": since, "page_size": page_size}
-                    ))
+                    response = future.result()
 
                     if hasattr(response, 'data') and response.data:
                         if (get_total(response) or 0) > len(response.data):
@@ -895,10 +939,14 @@ _HOST_CONTROLLED_ASSET_FIELDS = {
 }
 
 
+def _port_title(ip, port) -> str:
+    ip = ip or 'Unknown'
+    return ip if port is None else f"{ip}:{port}"
+
+
 def asset_list_name(label: str, asset) -> str:
     if label == "Ports":
-        ip = getattr(asset, 'ip', None) or 'Unknown'
-        return f"{ip}:{int(asset.port)}"
+        return _port_title(getattr(asset, 'ip', None), asset.port)
     name = getattr(asset, 'name', None) or getattr(asset, 'iprange', None) or getattr(asset, 'url', 'Unknown')
     return _fence_if_host_controlled(_DETAIL_KEY_BY_LABEL.get(label, ""), "name", name)
 
@@ -909,10 +957,22 @@ def asset_list_link(label: str, asset) -> str:
     return portal_link("asset", getattr(asset, 'id', None), _DETAIL_KEY_BY_LABEL.get(label))
 
 
+def affected_asset_type(data: dict) -> str:
+    """A finding's affected asset type; a port's `type` holds its protocol (TCP/UDP) instead."""
+    return "port" if _is_port_finding(data) else data.get('type') or ''
+
+
+def affected_asset_title(data: dict) -> str:
+    if _is_port_finding(data):
+        return _port_title(data.get('ip'), data.get('port'))
+    return data.get('name') or data.get('url') or data.get('iprange') or ''
+
+
 def affected_asset_link(data: dict) -> str:
-    if str(data.get('type') or '').lower() == 'port':
+    asset_type = affected_asset_type(data)
+    if asset_type.lower() == 'port':
         return portal_link("port", data.get('ip_id'))
-    return portal_link("asset", data.get('id'), data.get('type'))
+    return portal_link("asset", data.get('id'), asset_type)
 
 
 _ASSET_DETAIL_DISPATCH = {

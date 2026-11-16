@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta
+from functools import partial
 
 from watchtowr_api_sdk.api.findings_api import FindingsApi
 from watchtowr_api_sdk.api.certificates_api import CertificatesApi
 from watchtowr_api_sdk.api.service_discovery_api import ServiceDiscoveryApi
 from watchtowr_api_sdk.api.security_posture_dashboard_api import SecurityPostureDashboardApi
 
-from ..client import accepts_argument, format_finding_ids, get_api_client, get_total, parse_date, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, utc_now
+from ..client import accepts_argument, format_finding_ids, get_api_client, get_total, parse_date, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, run_in_parallel, utc_now
 from ..constants import MAX_TREND_WEEKS, OPEN_FINDINGS_FILTER, OPEN_FINDINGS_LABEL, READ_ONLY, REMEDIATION_DATE_CAVEAT, SUMMARY_SEVERITIES, VERIFIED_ASSET_STATUSES
 from ..failed_calls import PartialAnswer
-from .composite import _ASSET_API_MAP, ASSET_TYPES, _business_unit_details, _count, asset_list_link, asset_list_name
+from .composite import _ASSET_API_MAP, ASSET_TYPES, _asset_count_calls, _business_unit_details, _count, asset_list_link, asset_list_name
 
 
 def _asset_apis_with_status_filter() -> tuple[list[tuple], list[str]]:
@@ -23,6 +24,10 @@ def _no_status_filter_lines(labels: list[str]) -> list[str]:
 
 def _number(value: float):
     return int(value) if float(value).is_integer() else round(value, 1)
+
+
+def _week_ranges(now: datetime, weeks: int) -> list[tuple[datetime, datetime]]:
+    return [(now - timedelta(days=(w + 1) * 7), now - timedelta(days=w * 7)) for w in range(weeks)]
 
 
 def register_reporting_tools(mcp):
@@ -229,30 +234,34 @@ def register_reporting_tools(mcp):
             parts = PartialAnswer("Finding status timeline")
 
             lines = [f"Finding Status Timeline (Last {days} Days, critical to low):", REMEDIATION_DATE_CAVEAT, ""]
-            weeks = max(1, days // 7)
+            week_ranges = _week_ranges(now, max(1, days // 7))
+            futures = run_in_parallel([
+                call
+                for week_start, week_end in week_ranges
+                for call in (
+                    partial(
+                        _count, findings_api, "get_list_findings",
+                        **OPEN_FINDINGS_FILTER, created_from=week_start, created_to=week_end,
+                    ),
+                    partial(
+                        _count, findings_api, "get_list_findings",
+                        **{**OPEN_FINDINGS_FILTER, "statuses": "remediated"},
+                        updated_from=week_start, updated_to=week_end,
+                    ),
+                )
+            ])
 
-            for w in range(weeks):
-                week_end = now - timedelta(days=w * 7)
-                week_start = now - timedelta(days=(w + 1) * 7)
+            for w, (week_start, week_end) in enumerate(week_ranges):
                 week_label = week_start.strftime("%b %d") + " - " + week_end.strftime("%b %d")
+                opened_future, remediated_future = futures[2 * w:2 * w + 2]
 
                 opened = "opened count incomplete"
                 with parts.part(f"{week_label} opened findings"):
-                    new_count = _count(
-                        findings_api, "get_list_findings",
-                        **OPEN_FINDINGS_FILTER,
-                        created_from=week_start, created_to=week_end,
-                    )
-                    opened = f"+{new_count} opened"
+                    opened = f"+{opened_future.result()} opened"
 
                 remediated = "remediated count incomplete"
                 with parts.part(f"{week_label} remediated findings"):
-                    remediated_count = _count(
-                        findings_api, "get_list_findings",
-                        **{**OPEN_FINDINGS_FILTER, "statuses": "remediated"},
-                        updated_from=week_start, updated_to=week_end,
-                    )
-                    remediated = f"{remediated_count} remediated"
+                    remediated = f"{remediated_future.result()} remediated"
 
                 lines.append(f"  {week_label}: {opened}, {remediated}")
 
@@ -378,29 +387,46 @@ def register_reporting_tools(mcp):
 
             lines = ["Executive Risk Scorecard", "=" * 30, ""]
             parts = PartialAnswer("Executive risk scorecard")
+            now = utc_now()
+            futures = run_in_parallel([
+                *_asset_count_calls(client),
+                *(
+                    partial(_count, findings_api, "get_list_findings", **{**OPEN_FINDINGS_FILTER, "severities": sev})
+                    for sev in SUMMARY_SEVERITIES
+                ),
+                partial(_count, findings_api, "get_list_findings", tags="CISA-KEV", **OPEN_FINDINGS_FILTER),
+                partial(findings_api.get_list_findings, **OPEN_FINDINGS_FILTER, page_size=30),
+                partial(
+                    _count, cert_api, "get_list_certificates",
+                    not_after_from=now, not_after_to=now + timedelta(days=30),
+                ),
+            ])
+            asset_counts = futures[:len(_ASSET_API_MAP)]
+            severity_counts = futures[len(_ASSET_API_MAP):-3]
+            kev_future, age_future, exp_future = futures[-3:]
 
             total_assets = 0
-            for label, api_cls, method_name in _ASSET_API_MAP:
+            for (label, _, _), future in zip(_ASSET_API_MAP, asset_counts, strict=True):
                 with parts.part(label):
-                    total_assets += _count(api_cls(client), method_name)
+                    total_assets += future.result()
             lines.append(f"Total Assets: {parts.total(total_assets, 0)}")
 
             lines.append(f"\nFindings ({OPEN_FINDINGS_LABEL}):")
             total_findings = 0
             failures_before_findings = parts.failure_count()
-            for sev in SUMMARY_SEVERITIES:
+            for sev, future in zip(SUMMARY_SEVERITIES, severity_counts, strict=True):
                 with parts.part(f"{severity_display(sev)} findings"):
-                    c = _count(findings_api, "get_list_findings", **{**OPEN_FINDINGS_FILTER, "severities": sev})
+                    c = future.result()
                     total_findings += c
                     lines.append(f"  • {severity_display(sev)}: {c}")
             lines.append(f"  Total Open: {parts.total(total_findings, failures_before_findings)}")
 
             with parts.part("CISA-KEV findings"):
-                kev = _count(findings_api, "get_list_findings", tags="CISA-KEV", **OPEN_FINDINGS_FILTER)
+                kev = kev_future.result()
                 lines.append(f"\nCISA-KEV (Open): {kev}")
 
             with parts.part("Mean finding age"):
-                resp = findings_api.get_list_findings(**OPEN_FINDINGS_FILTER, page_size=30)
+                resp = age_future.result()
                 if hasattr(resp, 'data') and resp.data:
                     ages = []
                     for f in resp.data:
@@ -421,9 +447,7 @@ def register_reporting_tools(mcp):
                         lines.append(f"Mean Finding Age{scope}: {avg_age} days (oldest: {max_age} days)")
 
             with parts.part("Expiring certificates"):
-                now = utc_now()
-                exp = _count(cert_api, "get_list_certificates",
-                             not_after_from=now, not_after_to=now + timedelta(days=30))
+                exp = exp_future.result()
                 lines.append(f"Certificates Expiring (30d): {exp}")
 
             parts.raise_if_every_part_failed()
@@ -448,25 +472,33 @@ def register_reporting_tools(mcp):
             lines = [f"Week-over-Week Delta ({weeks} Weeks; findings: {OPEN_FINDINGS_LABEL}):", ""]
             parts = PartialAnswer("Week-over-week delta")
 
-            for w in range(weeks):
-                week_end = now - timedelta(days=w * 7)
-                week_start = now - timedelta(days=(w + 1) * 7)
+            week_ranges = _week_ranges(now, weeks)
+            calls_per_week = 1 + len(_ASSET_API_MAP)
+            futures = run_in_parallel([
+                call
+                for week_start, week_end in week_ranges
+                for call in (
+                    partial(
+                        _count, findings_api, "get_list_findings",
+                        **OPEN_FINDINGS_FILTER, created_from=week_start, created_to=week_end,
+                    ),
+                    *_asset_count_calls(client, created_from=week_start, created_to=week_end),
+                )
+            ])
+
+            for w, (week_start, week_end) in enumerate(week_ranges):
                 label = week_start.strftime("%b %d") + " - " + week_end.strftime("%b %d")
+                findings_future, *asset_futures = futures[w * calls_per_week:(w + 1) * calls_per_week]
 
                 findings_part = "findings incomplete"
                 with parts.part(f"{label} findings"):
-                    new_findings = _count(
-                        findings_api, "get_list_findings",
-                        **OPEN_FINDINGS_FILTER,
-                        created_from=week_start, created_to=week_end,
-                    )
-                    findings_part = f"{new_findings} new findings"
+                    findings_part = f"{findings_future.result()} new findings"
 
                 new_assets = 0
                 failures_before_assets = parts.failure_count()
-                for asset_label, api_cls, method_name in _ASSET_API_MAP:
+                for (asset_label, _, _), future in zip(_ASSET_API_MAP, asset_futures, strict=True):
                     with parts.part(f"{label} {asset_label}"):
-                        new_assets += _count(api_cls(client), method_name, created_from=week_start, created_to=week_end)
+                        new_assets += future.result()
 
                 lines.append(f"  {label}: {parts.total(new_assets, failures_before_assets)} new assets, {findings_part}")
 

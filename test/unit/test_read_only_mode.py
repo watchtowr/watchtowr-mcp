@@ -15,7 +15,7 @@ from watchtowr_mcp_server.client import (
     SecureApiClient,
     read_only_mode_enabled,
 )
-from watchtowr_mcp_server.mcp import create_server
+from watchtowr_mcp_server.mcp import READ_ONLY_ACTIONS, create_server
 
 
 WRITE_ONLY_TOOLS = {
@@ -212,6 +212,11 @@ MIXED_TOOL_WRITE_CALLS = [
     ("manage_asset_notes", {"asset_type": "domain", "asset_id": 1, "action": "create", "note": "example note"}),
     ("manage_asset_notes", {"asset_type": "domain", "asset_id": 1, "action": "update", "note_id": 2, "note": "example note"}),
     ("manage_asset_notes", {"asset_type": "domain", "asset_id": 1, "action": "delete", "note_id": 2}),
+    # Missing required arguments: refused as a write, not asked for the argument.
+    ("manage_asset_custom_property", {"asset_type": "domain", "asset_id": 1, "action": "create"}),
+    ("manage_asset_custom_property", {"asset_type": "domain", "asset_id": 1, "action": "update"}),
+    ("manage_asset_notes", {"asset_type": "domain", "asset_id": 1, "action": "create"}),
+    ("manage_asset_notes", {"asset_type": "domain", "asset_id": 1, "action": "delete"}),
 ]
 
 MIXED_TOOL_READ_CALLS = [
@@ -251,3 +256,42 @@ def test_every_mixed_tool_refuses_a_write_with_the_same_wording(set_read_only, c
         f"action {kwargs['action']!r} is refused because WATCHTOWR_MCP_READ_ONLY is on; "
         "the MCP server only reads from the watchTowr Platform in read-only mode."
     )
+
+
+def _list_tools():
+    async def _list():
+        async with Client(create_server()) as mcp_client:
+            return {tool.name: tool for tool in await mcp_client.list_tools()}
+    return asyncio.run(_list())
+
+
+def test_read_only_mode_lists_mixed_tools_with_only_their_read_action(set_read_only):
+    set_read_only("true")
+    listed = _list_tools()
+    for tool_name, read in READ_ONLY_ACTIONS.items():
+        tool = listed[tool_name]
+        assert tool.inputSchema["properties"]["action"]["enum"] == [read.action]
+        assert set(tool.inputSchema["properties"]) <= read.parameters
+        assert tool.title == read.title
+        assert not tool.annotations.destructiveHint
+    assert [tool.name for tool in listed.values() if not tool.annotations.readOnlyHint] == []
+
+
+def test_mixed_tools_list_their_write_actions_when_read_only_mode_is_off(set_read_only):
+    set_read_only(None)
+    listed = _list_tools()
+    for tool_name in READ_ONLY_ACTIONS:
+        assert len(listed[tool_name].inputSchema["properties"]["action"]["enum"]) > 1
+        assert listed[tool_name].annotations.destructiveHint is True
+
+
+@pytest.mark.parametrize("tool_name", READ_ONLY_ACTIONS)
+@pytest.mark.parametrize("explicit_action", [True, False])
+def test_read_only_mode_runs_the_listed_read_action(set_read_only, call_api_requests, call, tool_name, explicit_action):
+    set_read_only("true")
+    kwargs = {"asset_type": "domain", "asset_id": 1}
+    if explicit_action:
+        kwargs["action"] = READ_ONLY_ACTIONS[tool_name].action
+    with pytest.raises(RequestReachedCallApi):
+        call(tool_name, **kwargs)
+    assert [method for method, *_ in call_api_requests] == ["GET"]

@@ -8,7 +8,9 @@ import secrets
 import time
 import typing
 import unicodedata
-from contextvars import ContextVar
+from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextvars import ContextVar, copy_context
 from datetime import datetime, timezone
 
 import urllib3
@@ -36,6 +38,7 @@ READ_ONLY_ON_VALUES = {"true", "1", "yes"}
 READ_ONLY_OFF_VALUES = {"", "false", "0", "no"}
 REQUEST_TIMEOUT_ENV_VAR = "WATCHTOWR_MCP_REQUEST_TIMEOUT"
 ANYIO_WORKER_THREADS = 40
+PARALLEL_REQUESTS_PER_TOOL_CALL = 6
 DEFAULT_REQUEST_TIMEOUT = 30.0
 MAX_REQUEST_TIMEOUT = 600.0
 
@@ -122,7 +125,6 @@ _IP_NOT_ALLOWED_HINTS = {
         "add that machine's public IP address on the Dashboard IP Whitelisting page"
     ),
 }
-_ADDITIONAL_RESPONSE_FIELD = re.compile(r"^Error due to additional fields \(not defined in (\w+)\) in the input: (.+)$")
 
 
 def _unauthorized_hint() -> str:
@@ -375,12 +377,8 @@ class SecureApiClient(ApiClient):
             return super().response_deserialize(response_data, response_types_map)
         except ValidationError as e:
             error = UnexpectedPlatformResponseError(e.title, _error_fields(e))
-        except ValueError as e:
-            match = _ADDITIONAL_RESPONSE_FIELD.match(str(e))
-            if match is None:
-                error = UnexpectedPlatformResponseError(str(response_types_map.get(str(response_data.status))))
-            else:
-                error = UnexpectedPlatformResponseError(match[1], match[2])
+        except ValueError:
+            error = UnexpectedPlatformResponseError(str(response_types_map.get(str(response_data.status))))
         logger.warning("Unexpected response from the watchTowr Platform: %s", error)
         raise error
 
@@ -454,6 +452,15 @@ def get_api_client() -> ApiClient:
     return _api_client
 
 
+T = typing.TypeVar("T")
+
+
+def run_in_parallel(calls: list[Callable[[], T]]) -> list[Future[T]]:
+    # Workers run in a copy of the caller's context, so the tool-call headers and the shared back-off list carry over.
+    with ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS_PER_TOOL_CALL) as pool:
+        return [pool.submit(copy_context().run, call) for call in calls]
+
+
 def get_total(response) -> int | None:
     """Extract pagination total from a paginated API response."""
     meta = getattr(response, 'meta', None)
@@ -478,6 +485,63 @@ def no_results(response, page: int | None, none_found: str) -> str:
     if not page or page <= 1 or not total:
         return none_found
     return past_the_end(page, total)
+
+
+MAX_ASSET_PAGE_SIZE = 100
+LONG_LIST_PAGES = 5
+
+
+def _per_page(response, page_size: int) -> int:
+    meta = getattr(response, 'meta', None)
+    pagination = (meta.get('pagination') or {}) if isinstance(meta, dict) else getattr(meta, 'pagination', None)
+    per_page = pagination.get('per_page') if isinstance(pagination, dict) else getattr(pagination, 'per_page', None)
+    try:
+        return int(per_page) if per_page and int(per_page) > 0 else page_size
+    except (TypeError, ValueError):
+        return page_size
+
+
+THIS_TOOLS_FILTERS = "this tool's filters"
+
+
+def paging_lines(response, page: int | None, page_size: int, *, narrow_with: str | None, exportable: bool) -> list[str]:
+    """Where this page sits in the list and how to get the next one. Empty when the list fits on one page.
+
+    A list longer than LONG_LIST_PAGES pages also says how the user can get it without paging through it in the
+    chat: `narrow_with` names the filters that narrow it (None when nothing does), and `exportable` says whether
+    the portal's Reporting page has a spreadsheet export for this list.
+    """
+    total = get_total(response)
+    per_page = _per_page(response, page_size)
+    if not total or total <= per_page:
+        return []
+    page = page or 1
+    pages = -(-total // per_page)
+    if page >= pages:
+        lines = [f"Page {page} of {pages}: the last page."]
+    else:
+        lines = [f"Page {page} of {pages} ({per_page} per page). More: call again with page={page + 1}."]
+    if pages > LONG_LIST_PAGES:
+        ways = [f"narrow it with {narrow_with}"] if narrow_with else []
+        if exportable:
+            ways.append("export the whole list from the watchTowr portal (Reporting → Generate reports)")
+        advice = f"Tell the user they can {', or '.join(ways)}." if ways else "Ask the user before paging through all of it."
+        lines.append(f"The full list of {total:,} takes {pages} calls. {advice}")
+    return lines
+
+
+LIST_BANNER_CHARS = 200
+BANNERS_CUT_NOTE = (
+    f"Banners are cut to {LIST_BANNER_CHARS} characters in this list; get_asset_port_details shows a port's whole banner."
+)
+
+
+def list_banner(banner) -> tuple[str, bool]:
+    """A banner for one row of a list, fenced and cut to LIST_BANNER_CHARS, and whether it was cut."""
+    text = str(banner)
+    if len(text) <= LIST_BANNER_CHARS:
+        return untrusted(text), False
+    return untrusted(text[:LIST_BANNER_CHARS] + "…"), True
 
 
 def check_page(page: int) -> None:
@@ -618,8 +682,11 @@ def finding_asset_type(asset_type: str) -> str | None:
 
 
 def _is_port_finding(data: dict) -> bool:
-    """The API overwrites a port's `type` with its protocol (TCP/UDP), so ports are told apart by ip_id."""
-    return 'ip_id' in data
+    """The API overwrites a port's `type` with its protocol (TCP/UDP), so ports are told apart by their port number or ip_id.
+
+    Either can be missing: `ip_id` is left out for a port on a domain or subdomain.
+    """
+    return data.get('port') is not None or data.get('ip_id') is not None
 
 
 def is_affected_asset(finding, asset_type: str, asset_id) -> bool:

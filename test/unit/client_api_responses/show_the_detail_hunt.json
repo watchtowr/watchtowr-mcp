@@ -24,7 +24,8 @@
       "completed_at": null,
       "completed_by": "redacted-7",
       "requested_by": "redacted-75",
-      "status": "in-progress"
+      "status": "in-progress",
+      "cves": []
     }
   }
 }

@@ -187,6 +187,7 @@ def _hunt_payload(hunt_request_type) -> dict:
         "rapid_exposure_mechanism": None,
         "title": "Example hunt",
         "status": "completed",
+        "cves": [],
     }
 
 
@@ -404,3 +405,42 @@ def test_client_ip_accepts_whois_keys_the_sdk_does_not_define():
     assert whois.raw == "NetRange: 192.0.2.0 - 192.0.2.255"
     assert whois.data.asn == "64500"
     assert whois.data.nets[0].name == "EXAMPLE-NET"
+
+
+def test_paginated_hunts_accepts_the_cves_the_platform_returns():
+    from watchtowr_api_sdk.models.paginated_hunts import PaginatedHunts
+
+    hunts = PaginatedHunts.from_dict({
+        "data": [{**_hunt_payload("SoftwareVulnerability"), "cves": ["CVE-2024-3400"]}],
+        "meta": PAGINATION_META,
+    })
+    assert hunts.data[0].cves == ["CVE-2024-3400"]
+
+
+def test_hunt_detail_accepts_the_cves_the_platform_returns():
+    from watchtowr_api_sdk.models.hunt_detail_response import HuntDetailResponse
+
+    response = HuntDetailResponse.from_dict({"data": {**_hunt_detail_payload(None), "cves": ["CVE-2024-3400"]}})
+    assert response.data.cves == ["CVE-2024-3400"]
+
+
+@pytest.mark.parametrize("cves_entry", [{}, {"cves": None}], ids=["missing", "null"])
+def test_hunts_from_a_platform_without_cves_still_load(cves_entry):
+    from watchtowr_api_sdk.models.hunt_detail_response import HuntDetailResponse
+    from watchtowr_api_sdk.models.paginated_hunts import PaginatedHunts
+
+    hunt = {key: value for key, value in _hunt_payload(None).items() if key != "cves"}
+    detail = {key: value for key, value in _hunt_detail_payload(None).items() if key != "cves"}
+
+    hunts = PaginatedHunts.from_dict({"data": [{**hunt, **cves_entry}], "meta": PAGINATION_META})
+    response = HuntDetailResponse.from_dict({"data": {**detail, **cves_entry}})
+
+    assert hunts.data[0].cves is None
+    assert response.data.cves is None
+
+
+def test_a_dropped_unknown_key_keeps_the_aliased_keys_the_sdk_defines():
+    from watchtowr_api_sdk.models.asset_business_unit_ids_dto import AssetBusinessUnitIdsDTO
+
+    dto = AssetBusinessUnitIdsDTO.from_dict({"businessUnitIds": [3.0], "key_the_sdk_does_not_define": True})
+    assert dto.business_unit_ids == [3.0]

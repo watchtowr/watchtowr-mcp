@@ -2,10 +2,24 @@ from typing import Literal
 
 from watchtowr_api_sdk.api.hunts_api import HuntsApi
 
-from ..client import get_api_client, get_total, no_results, parse_date, portal_line, portal_link, severity_display, raise_tool_error
+from ..client import get_api_client, get_total, no_results, parse_date, portal_line, portal_link, severity_display, raise_tool_error, paging_lines, THIS_TOOLS_FILTERS
 from ..constants import READ_ONLY
 from ..failed_calls import PartialAnswer
 from .composite import affected_asset_name
+
+
+def linked_cves(hunt) -> str:
+    return ", ".join(getattr(hunt, 'cves', None) or [])
+
+
+def linked_cves_suffix(hunt) -> str:
+    cves = linked_cves(hunt)
+    return f" [CVEs: {cves}]" if cves else ""
+
+
+def linked_cves_line(hunt) -> list[str]:
+    cves = linked_cves(hunt)
+    return [f"CVEs: {cves}"] if cves else []
 
 
 def register_hunt_tools(mcp):
@@ -39,7 +53,7 @@ def register_hunt_tools(mcp):
                 type_bits = [b for b in (hunt_type, request_type) if b]
                 type_str = f" ({', '.join(type_bits)})" if type_bits else ""
                 lines.append(
-                    f"• [ID:{hid}] {title} - {status}{type_str} "
+                    f"• [ID:{hid}] {title} - {status}{type_str}{linked_cves_suffix(h)} "
                     f"[{findings} findings, {assets} affected assets] (created: {created}){portal_link('hunt', hid)}"
                 )
 
@@ -47,7 +61,7 @@ def register_hunt_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with="the filters on search_hunts", exportable=False)])
         except Exception as e:
             raise_tool_error("retrieving recent hunts", e)
 
@@ -72,6 +86,7 @@ def register_hunt_tools(mcp):
                 f"Title: {getattr(h, 'title', 'N/A')}",
                 f"Status: {getattr(h, 'status', 'N/A')}",
                 f"Type: {getattr(h, 'type', 'N/A')}",
+                *linked_cves_line(h),
                 f"Total Findings: {getattr(h, 'total_findings', 0)}",
                 f"Affected Assets: {getattr(h, 'total_assets', 0)}",
                 f"Created: {getattr(h, 'created_at', 'N/A')}",
@@ -146,7 +161,7 @@ def register_hunt_tools(mcp):
             if total:
                 header += f" of {total}"
             header = "\n".join([header + "):", *portal_line('hunt', hunt_id)])
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=None, exportable=False)])
         except Exception as e:
             raise_tool_error("retrieving findings for hunt", e)
 
@@ -189,7 +204,7 @@ def register_hunt_tools(mcp):
             if total:
                 header += f" of {total}"
             header = "\n".join([header + "):", *portal_line('hunt', hunt_id)])
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=None, exportable=False)])
         except Exception as e:
             raise_tool_error("retrieving assets for hunt", e)
 
@@ -264,7 +279,7 @@ def register_hunt_tools(mcp):
                 assets = getattr(h, 'total_assets', 0)
                 rt_str = f" ({request_type})" if request_type else ""
                 lines.append(
-                    f"• [ID:{hid}] {title} - {status}{rt_str} "
+                    f"• [ID:{hid}] {title} - {status}{rt_str}{linked_cves_suffix(h)} "
                     f"[{findings} findings, {assets} affected assets]{portal_link('hunt', hid)}"
                 )
 
@@ -272,7 +287,7 @@ def register_hunt_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("searching hunts", e)
 
@@ -299,6 +314,7 @@ def register_hunt_tools(mcp):
                 f"Hunt Impact Summary: {getattr(h, 'title', 'N/A')}",
                 *portal_line("hunt", getattr(h, 'id', hunt_id)),
                 f"Status: {getattr(h, 'status', 'N/A')}",
+                *linked_cves_line(h),
                 f"Total Findings: {getattr(h, 'total_findings', 0)}",
                 f"Affected Assets: {getattr(h, 'total_assets', 0)}",
             ]

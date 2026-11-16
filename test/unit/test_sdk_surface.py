@@ -34,7 +34,6 @@ SDK_CALLS = [
     ("watchtowr_api_sdk.api.findings_api", "FindingsApi", "update_finding_status"),
     ("watchtowr_api_sdk.api.findings_api", "FindingsApi", "start_specific_finding_retest"),
     ("watchtowr_api_sdk.api.findings_api", "FindingsApi", "get_available_finding_statuses"),
-    ("watchtowr_api_sdk.api.findings_api", "FindingsApi", "export_pdf_for_finding"),
     ("watchtowr_api_sdk.api.findings_api", "FindingsApi", "update_finding_state"),
     # Hunts
     ("watchtowr_api_sdk.api.hunts_api", "HuntsApi", "get_client_hunts"),

@@ -104,9 +104,9 @@ def test_concurrent_tool_calls_each_send_their_own_tool_name(sent_requests, serv
     }
     assert tool_per_request == {
         ("GET", "testing-infrastructure"): TOOL_NAME,
-        ("POST", "findings/retest/1.0"): BULK_RETEST_TOOL_NAME,
-        ("POST", "findings/retest/2.0"): BULK_RETEST_TOOL_NAME,
-        ("POST", "findings/retest/3.0"): BULK_RETEST_TOOL_NAME,
+        ("POST", "findings/retest/1"): BULK_RETEST_TOOL_NAME,
+        ("POST", "findings/retest/2"): BULK_RETEST_TOOL_NAME,
+        ("POST", "findings/retest/3"): BULK_RETEST_TOOL_NAME,
     }
 
 

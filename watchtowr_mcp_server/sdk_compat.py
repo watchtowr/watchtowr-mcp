@@ -85,6 +85,8 @@ def _validate_unless_none(validate):
 NULLABLE_FIELDS = (
     ("ClientEngineSettings", "intrusive_http_checks_enabled"),
     ("ClientEngineSettingsDetails", "intrusive_http_checks_enabled"),
+    ("Hunt", "cves"),
+    ("HuntDetail", "cves"),
 )
 
 
@@ -131,20 +133,30 @@ def accept_null_field(model_class: type[BaseModel], field_name: str) -> None:
     model_class.model_rebuild(force=True)
 
 
-WHOIS_MODELS_THAT_DROP_UNKNOWN_KEYS = ("WhoisDataObject", "IpWhoisData", "IpWhoisDataObject", "IpWhoisNet")
+def response_keys_the_sdk_defines(model_class) -> frozenset[str] | None:
+    keys = getattr(model_class, f"_{model_class.__name__}__properties", None)
+    return frozenset(keys) if keys is not None else None
 
 
 def drop_unknown_keys_before_from_dict(model_class) -> None:
     if not hasattr(model_class, "stock_from_dict"):
         model_class.stock_from_dict = model_class.from_dict
-    field_names = frozenset(model_class.model_fields)
+    known_keys = response_keys_the_sdk_defines(model_class)
 
     def from_dict_without_unknown_keys(cls, obj: Optional[Dict[str, Any]]) -> Any:
         if isinstance(obj, dict):
-            obj = {key: value for key, value in obj.items() if key in field_names}
+            obj = {key: value for key, value in obj.items() if key in known_keys}
         return cls.stock_from_dict(obj)
 
     model_class.from_dict = classmethod(from_dict_without_unknown_keys)  # type: ignore[assignment]
+
+
+def models_with_defined_response_keys(models_pkg) -> list[type[BaseModel]]:
+    return [
+        model_class
+        for model_class in vars(models_pkg).values()
+        if isinstance(model_class, type) and response_keys_the_sdk_defines(model_class) is not None
+    ]
 
 
 def apply_watchtowr_sdk_compat_patches() -> None:
@@ -156,6 +168,9 @@ def apply_watchtowr_sdk_compat_patches() -> None:
     import watchtowr_api_sdk.models as models_pkg
     from watchtowr_api_sdk.models.client_finding_assignee import ClientFindingAssignee
     from watchtowr_api_sdk.models.client_finding_impact_tag import ClientFindingImpactTag
+
+    for model_class in models_with_defined_response_keys(models_pkg):
+        drop_unknown_keys_before_from_dict(model_class)
 
     # Patch Link: previous/next are null on the first/last page respectively.
     def link_from_dict(cls, obj: Optional[Dict[str, Any]]) -> Any:
@@ -171,9 +186,6 @@ def apply_watchtowr_sdk_compat_patches() -> None:
         )
 
     link_mod.Link.from_dict = classmethod(link_from_dict)  # type: ignore[assignment]
-
-    for model_name in WHOIS_MODELS_THAT_DROP_UNKNOWN_KEYS:
-        drop_unknown_keys_before_from_dict(getattr(models_pkg, model_name))
 
     for model_name, field_name in NULLABLE_FIELDS:
         accept_null_field(getattr(models_pkg, model_name), field_name)

@@ -6,7 +6,7 @@ from watchtowr_api_sdk.api.points_of_interest_api import PointsOfInterestApi
 from watchtowr_api_sdk.api.certificates_api import CertificatesApi
 from watchtowr_api_sdk.api.pending_domains_api import PendingDomainsApi
 
-from ..client import get_api_client, get_total, no_results, parse_date, format_bus, portal_link, untrusted, raise_tool_error, utc_now
+from ..client import get_api_client, get_total, no_results, parse_date, format_bus, portal_link, untrusted, raise_tool_error, utc_now, paging_lines, THIS_TOOLS_FILTERS
 from ..constants import READ_ONLY
 
 
@@ -80,7 +80,7 @@ def register_threat_intel_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing suspicious domains", e)
 
@@ -224,7 +224,7 @@ def register_threat_intel_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing points of interest", e)
 
@@ -308,7 +308,7 @@ def register_threat_intel_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing certificates", e)
 
@@ -413,7 +413,7 @@ def register_threat_intel_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with="the filters on list_certificates", exportable=True)])
         except Exception as e:
             raise_tool_error("listing expiring certificates", e)
 
@@ -481,6 +481,6 @@ def register_threat_intel_tools(mcp):
                     lines.append(f"   Discovered: {created}")
                 lines.append("")
 
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("listing pending domains", e)

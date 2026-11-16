@@ -222,7 +222,7 @@ With `WATCHTOWR_MCP_READ_ONLY` set to `true`, `1` or `yes`, the server never cha
 
 - **Every non-GET request is refused.** The API client rejects any POST, PUT, PATCH or DELETE before it is sent, so no tool can write, whatever the model calls.
 - **Write-only tools are hidden** from the tool list: `update_finding_status`, `retest_finding`, `update_finding_state`, `bulk_retest_findings`, `bulk_update_finding_status`, `set_asset_criticality`, `manage_asset_business_units`, `update_asset_status`, `add_seed_asset`.
-- **Read/write tools stay listed but only read**: `manage_engine_settings` (`get`), `manage_asset_custom_property` (`list`) and `manage_asset_notes` (`list`). Any other valid action returns an error naming `WATCHTOWR_MCP_READ_ONLY`.
+- **Read/write tools are listed with only their read action** and marked read-only: `manage_engine_settings` (`get`), `manage_asset_custom_property` (`list`) and `manage_asset_notes` (`list`). A client that sends another action anyway gets an error naming `WATCHTOWR_MCP_READ_ONLY`.
 
 ## Request Headers
 
@@ -250,7 +250,7 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 | `get_finding_statuses` | List available finding status values |
 | `get_findings_summary_by_severity` | Count breakdown of findings by severity level |
 | `get_unresolved_findings_by_business_unit` | List unresolved findings for a specific business unit |
-| `export_finding_pdf` | Export a finding report as PDF |
+| `export_finding_pdf` | Link to the finding in the Platform, where its PDF report can be exported |
 
 ### Assets (38 tools)
 

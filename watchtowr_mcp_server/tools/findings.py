@@ -3,10 +3,10 @@ from typing import Literal
 from watchtowr_api_sdk.api.findings_api import FindingsApi
 from watchtowr_api_sdk.models.update_client_finding_status_request_body import UpdateClientFindingStatusRequestBody
 
-from ..client import get_api_client, get_total, no_results, normalize_finding_status, normalize_severities, parse_date, portal_line, portal_link, severity_display, untrusted, raise_tool_error
+from ..client import get_api_client, get_total, no_results, normalize_finding_status, normalize_severities, parse_date, portal_line, portal_link, severity_display, untrusted, raise_tool_error, paging_lines, THIS_TOOLS_FILTERS
 from ..constants import DESTRUCTIVE_WRITE, READ_ONLY, SUMMARY_SEVERITIES, WRITE
 from ..failed_calls import PartialAnswer
-from .composite import affected_asset_link, affected_asset_name
+from .composite import affected_asset_link, affected_asset_name, affected_asset_title, affected_asset_type
 from .intelligence import VULNERABILITY_EXPOSURE_NOT_COUNTED, exposure_line
 
 CVE_EXPOSURE_EVIDENCE = "Confirmed findings for {} at the organization's impact threshold, in your business units"
@@ -24,8 +24,8 @@ def _affected_summary(finding, link: bool = False) -> str | None:
     data = affected.get('data') if isinstance(affected, dict) else getattr(affected, 'data', None)
     if not isinstance(data, dict):
         return None
-    asset_type = data.get('type') or ''
-    name = data.get('name') or data.get('url') or data.get('iprange') or ''
+    asset_type = affected_asset_type(data)
+    name = affected_asset_title(data)
     asset_id = data.get('id')
     status = data.get('status') or ''
     if not (asset_type or name or asset_id):
@@ -127,7 +127,7 @@ def register_findings_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with="the filters on search_findings", exportable=True)])
         except Exception as e:
             raise_tool_error("retrieving CISA-KEV findings", e)
 
@@ -163,7 +163,7 @@ def register_findings_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with="the filters on search_findings", exportable=True)])
         except Exception as e:
             raise_tool_error(f"retrieving {severity} findings", e)
 
@@ -399,7 +399,7 @@ def register_findings_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return "\n".join([*exposure, header, *lines])
+            return "\n".join([*exposure, header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("searching findings", e)
 
@@ -530,23 +530,27 @@ def register_findings_tools(mcp):
             if total:
                 header += f" of {total}"
             header = "\n".join([header + "):", *portal_line('business_unit', business_unit_id)])
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("retrieving findings by business unit", e)
 
-    @mcp.tool(title="Export finding PDF", annotations=READ_ONLY)
+    @mcp.tool(title="Link to finding PDF export", annotations=READ_ONLY)
     def export_finding_pdf(finding_id: int) -> str:
-        """Export a finding report as PDF.
+        """Get the Platform link where a finding's PDF report can be exported. The PDF itself is not returned.
 
         Args:
             finding_id: The finding ID to export.
         """
         try:
-            api = FindingsApi(get_api_client())
-            api.export_pdf_for_finding(id=finding_id)
-            return f"PDF export initiated for finding {finding_id}. Check the watchTowr Platform for the download.{portal_link('finding', finding_id)}"
+            finding = FindingsApi(get_api_client()).get_finding_details(id=finding_id).data
         except Exception as e:
-            raise_tool_error("exporting finding PDF", e)
+            raise_tool_error("linking the finding's PDF export", e)
+        title = getattr(finding, 'title', None) or 'No title'
+        return "\n".join([
+            f"This tool cannot return the PDF. Open finding {finding_id} ({title}) in the watchTowr Platform "
+            "and export the PDF there.",
+            *portal_line("finding", finding_id),
+        ])
 
     @mcp.tool(tags={"write"}, title="Update finding state", annotations=DESTRUCTIVE_WRITE)
     def update_finding_state(finding_id: int, state: str) -> str:

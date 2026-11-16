@@ -4,7 +4,7 @@ from watchtowr_api_sdk.api.source_ip_addresses_api import SourceIPAddressesApi
 from watchtowr_api_sdk.api.activity_log_api import ActivityLogApi
 from watchtowr_api_sdk.api.business_unit_api import BusinessUnitApi
 
-from ..client import no_results, get_api_client, get_total, parse_date, portal_line, portal_link, untrusted, raise_tool_error, parse_ids
+from ..client import no_results, get_api_client, get_total, parse_date, portal_line, portal_link, untrusted, raise_tool_error, parse_ids, paging_lines, THIS_TOOLS_FILTERS
 from ..constants import READ_ONLY
 
 
@@ -91,7 +91,7 @@ def register_organization_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with="the filters on search_activity_logs", exportable=False)])
         except Exception as e:
             raise_tool_error("retrieving activity logs", e)
 
@@ -145,7 +145,7 @@ def register_organization_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("searching activity logs", e)
 
@@ -184,7 +184,7 @@ def register_organization_tools(mcp):
             if total:
                 header += f" of {total}"
             header += "):"
-            return header + "\n" + "\n".join(lines)
+            return "\n".join([header, *lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("listing business units", e)
 

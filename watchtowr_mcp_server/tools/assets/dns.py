@@ -2,7 +2,7 @@ from typing import Literal
 
 from watchtowr_api_sdk.api.dns_record_analysis_api import DNSRecordAnalysisApi
 
-from ...client import no_results, get_api_client, get_total, portal_link, supported_kwargs, untrusted, raise_tool_error
+from ...client import no_results, get_api_client, get_total, portal_link, supported_kwargs, untrusted, raise_tool_error, paging_lines, THIS_TOOLS_FILTERS
 from ...constants import READ_ONLY
 
 
@@ -72,7 +72,7 @@ def register_asset_dns_tools(mcp):
                 ttl_str = "" if ttl is None else f"{ttl:g}"
                 lines.append(f"{rtype:<8}| {name:<30}| {ttl_str:<8}| {untrusted(value, '')}")
 
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("running get_asset_dns_records", e)
 
@@ -151,6 +151,6 @@ def register_asset_dns_tools(mcp):
                 asset_link = portal_link("asset", getattr(asset_obj, "id", None), getattr(asset_obj, "type", None))
                 lines.append(f"{rtype:<8}| {name:<30}| {asset:<40}| {untrusted(value, '')}{asset_link}")
 
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("running search_dns_records", e)

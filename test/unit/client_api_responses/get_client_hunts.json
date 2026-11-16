@@ -14,7 +14,8 @@
         "total_findings": 0,
         "total_assets": 0,
         "status": "in-progress",
-        "rapid_exposure_mechanism": "impactLessPoc"
+        "rapid_exposure_mechanism": "impactLessPoc",
+        "cves": []
       },
       {
         "id": 103,
@@ -26,7 +27,8 @@
         "total_findings": 0,
         "total_assets": 0,
         "status": "completed",
-        "rapid_exposure_mechanism": "impactLessPoc"
+        "rapid_exposure_mechanism": "impactLessPoc",
+        "cves": []
       }
     ],
     "meta": {

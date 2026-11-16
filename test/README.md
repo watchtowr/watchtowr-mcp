@@ -141,8 +141,6 @@ def test_list_findings_by_severity(live_env, call):
 1. Asserts the response is non-`None`.
 2. With `allow_empty=False` (the default) also asserts the response is non-empty. Pass `allow_empty=True` for tools that can legitimately return `"No X found."` against a sparsely-populated tenant.
 
-For tools that return binary (e.g. `export_finding_pdf`), `assert_ok` checks for non-zero `len()` instead.
-
 ## Adding a new tool
 
 When you add a new `@mcp.tool()` function:

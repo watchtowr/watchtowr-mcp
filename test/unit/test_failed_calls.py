@@ -20,7 +20,7 @@ from watchtowr_api_sdk.exceptions import ApiException
 import watchtowr_mcp_server.client as client_module
 
 from test.unit.conftest import JsonReply, page_of
-from test.unit.test_tool_error_path import _minimal_args, _tool_names
+from test.unit.test_tool_error_path import _minimal_args, _tools_that_call_the_platform
 from test.unit.test_tool_errors import _call_tool_over_mcp
 from watchtowr_mcp_server.constants import MAX_TREND_WEEKS
 from watchtowr_mcp_server.mcp import create_server
@@ -324,7 +324,7 @@ def _baseline_requests(fn, args, fake_platform) -> int | None:
     return len(fake_platform.requested_urls)
 
 
-@pytest.mark.parametrize("tool_name", _tool_names())
+@pytest.mark.parametrize("tool_name", _tools_that_call_the_platform())
 def test_a_failed_platform_call_is_never_silent(tool_name, tools, fake_platform):
     fn = tools[tool_name]
     args = _minimal_args(fn, tool_name)
@@ -343,7 +343,7 @@ def test_a_failed_platform_call_is_never_silent(tool_name, tools, fake_platform)
         assert "Incomplete:" in answer and "failed: HTTP 500" in answer, f"call {call_number} of {calls}:\n{answer}"
 
 
-@pytest.mark.parametrize("tool_name", _tool_names())
+@pytest.mark.parametrize("tool_name", _tools_that_call_the_platform())
 def test_every_platform_call_failing_is_a_tool_error(tool_name, tools, fake_platform):
     fn = tools[tool_name]
     args = _minimal_args(fn, tool_name)

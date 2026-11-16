@@ -13,7 +13,7 @@ from watchtowr_api_sdk.api.capability_search_api import CapabilitySearchApi
 from fastmcp.exceptions import ToolError
 from watchtowr_api_sdk.exceptions import ApiException
 
-from ..client import no_results, get_api_client, get_total, parse_date, portal_line, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, parse_ids, api_error_summary
+from ..client import no_results, get_api_client, get_total, parse_date, portal_line, portal_link, severity_display, supported_kwargs, untrusted, raise_tool_error, parse_ids, api_error_summary, paging_lines, THIS_TOOLS_FILTERS
 from ..constants import READ_ONLY
 from .composite import affected_asset_name
 
@@ -145,7 +145,7 @@ def register_intelligence_tools(mcp):
                     lines.append(f"  {' | '.join(extra_parts)}")
             if any(verdict != CHECK_INCOMPLETE for verdict in verdicts):
                 lines.append(f"Exposure verdicts cover Confirmed findings {EXPOSURE_SCOPE}.")
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_check_incomplete("vulnerability intelligence list", e)
 
@@ -299,7 +299,7 @@ def register_intelligence_tools(mcp):
                 lines.append(f"  Hunts: {hunts} | Open Findings: {findings} | Last Reported: {last_reported or 'N/A'}")
             if any(verdict != CHECK_INCOMPLETE for verdict in verdicts):
                 lines.append(f"Exposure verdicts cover Confirmed findings for vulnerabilities each adversary exploits {EXPOSURE_SCOPE}.")
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_check_incomplete("adversary intelligence list", e)
 
@@ -469,7 +469,7 @@ def register_intelligence_tools(mcp):
                     extras.append(f"Malware: {untrusted(malware_path)}")
                 if extras:
                     lines.append(f"  {' | '.join(extras)}")
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("running list_compromised_endpoints", e)
 
@@ -522,7 +522,7 @@ def register_intelligence_tools(mcp):
                 created = getattr(c, 'created_at', '')
                 # Never display password/credential value
                 lines.append(f"• [ID:{cid}] [{cred_type}] {untrusted(username)} → {untrusted(url)} ({created})")
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("running get_compromised_endpoint_credentials", e)
 
@@ -612,7 +612,7 @@ def register_intelligence_tools(mcp):
                 if detail_parts:
                     lines.append(f"  {' | '.join(detail_parts)}")
                 lines.append(f"  Attempted: {attempted}")
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=True)])
         except Exception as e:
             raise_tool_error("running list_credential_attempt_logs", e)
 
@@ -724,7 +724,7 @@ def register_intelligence_tools(mcp):
                     meta_parts.append(f"Days Open: {days_open}")
                 lines.append(f"  {' | '.join(meta_parts)}")
                 lines.append(f"  Started: {start} | Completed: {complete}")
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("running list_finding_retest_history", e)
 
@@ -872,7 +872,7 @@ def register_intelligence_tools(mcp):
                     lines.append(f"   Created: {created_at or 'N/A'} | Updated: {updated_at or 'N/A'}")
                 lines.append("")
 
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("running search_active_defense_library", e)
 
@@ -974,6 +974,6 @@ def register_intelligence_tools(mcp):
                         lines.append(f"   {' | '.join(meta_parts)}")
                     lines.append("")
 
-            return "\n".join(lines)
+            return "\n".join([*lines, *paging_lines(response, page, min(page_size, 30), narrow_with=THIS_TOOLS_FILTERS, exportable=False)])
         except Exception as e:
             raise_tool_error("running search_capabilities", e)

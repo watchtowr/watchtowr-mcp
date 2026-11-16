@@ -63,7 +63,7 @@ def _page_with_total(items: list, total: int) -> dict:
 def _route_hunt(fake_platform) -> None:
     fake_platform.route(r"/hunts/show/[\d.]+$", JsonReply({"data": {
         "id": 1, "title": "Hunt", "type": "proactive", "status": "completed", "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z", "total_findings": 42, "total_assets": 1,
+        "updated_at": "2026-01-01T00:00:00Z", "total_findings": 42, "total_assets": 1, "cves": [],
     }}))
     fake_platform.route(r"/hunts/show/[\d.]+/findings$", JsonReply(_page_with_total([], 42)))
 

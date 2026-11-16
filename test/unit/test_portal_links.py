@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import NamedTuple
 
 import pytest
+from fastmcp.exceptions import ToolError
 from watchtowr_api_sdk.models.asset_id import AssetId
 
 from watchtowr_mcp_server.client import portal_line, portal_link, portal_url
-from test.unit.conftest import JsonReply, page_of
+from test.unit.conftest import JsonReply, finding_json, page_of, port_json
 from test.unit.test_points_of_interest_output import _point_json
 from test.unit.test_sdk_compat import _domain_payload, _hunt_detail_payload, _hunt_payload
 
@@ -96,24 +97,6 @@ def test_link_and_line_formats():
     assert portal_line("finding", 1) == [f"Portal: {HOST}/findings/1"]
 
 
-def _finding_json(finding_id: int, affected: dict | None = None) -> dict:
-    return {
-        "id": finding_id, "title": "Example finding", "description": "", "impact": "", "finding_impact": "High",
-        "tags": [], "evidence": "", "recommendation": "", "severity": "high", "cvssv3_score": 0,
-        "cvssv3_metrics": "", "references": "", "status": "confirmed", "created_at": "2026-05-29T16:10:47Z",
-        "affected": {"data": affected or {"type": "domain", "id": "3", "name": "example.com"}},
-        "last_status_updated_at": "2026-05-29T16:10:47Z", "customProperties": [], "detection_rules": [],
-    }
-
-
-def _port_json() -> dict:
-    return {
-        "type": "port", "created_at": "2026-05-29T16:10:47Z", "last_seen_at": "2026-05-29T16:10:47Z",
-        "id": "9", "ip": "192.0.2.1", "ip_id": 4, "port": 443, "service": "https", "status": "verified",
-        "businessUnits": [], "metadata": {},
-    }
-
-
 def _service_json() -> dict:
     return {
         "id": 21, "portId": 9, "ip": "192.0.2.1", "port": 443, "service": "https", "ipId": 4, "findingId": 5,
@@ -154,14 +137,14 @@ class LinkCase(NamedTuple):
 
 
 LINK_CASES = [
-    LinkCase("search_findings", {}, {r"/findings/list$": page_of([_finding_json(5)])},
+    LinkCase("search_findings", {}, {r"/findings/list$": page_of([finding_json(5)])},
              "[ID:5", f"{HOST}/findings/5"),
-    LinkCase("get_finding_details", {"finding_id": 5}, {r"/findings/show/5(\.0)?$": {"data": _finding_json(5)}},
+    LinkCase("get_finding_details", {"finding_id": 5}, {r"/findings/show/5(\.0)?$": {"data": finding_json(5)}},
              "Portal:", f"{HOST}/findings/5"),
-    LinkCase("get_finding_details", {"finding_id": 5}, {r"/findings/show/5(\.0)?$": {"data": _finding_json(5)}},
+    LinkCase("get_finding_details", {"finding_id": 5}, {r"/findings/show/5(\.0)?$": {"data": finding_json(5)}},
              "Affected Asset:", f"{HOST}/assets/domain/3/overview"),
     LinkCase("get_finding_details", {"finding_id": 5},
-             {r"/findings/show/5(\.0)?$": {"data": _finding_json(5, {"type": "PORT", "id": 9, "ip_id": 4, "port": 443})}},
+             {r"/findings/show/5(\.0)?$": {"data": finding_json(5, {"type": "PORT", "id": 9, "ip_id": 4, "port": 443})}},
              "Affected Asset:", f"{HOST}/assets/ip/4/ports"),
     LinkCase("list_recent_hunts", {}, {r"/hunts/list$": page_of([_hunt_payload("Misconfig")])},
              "[ID:42", f"{HOST}/hunts/42/overview"),
@@ -171,7 +154,7 @@ LINK_CASES = [
              "www.example.com", f"{HOST}/assets/subdomain/7/overview"),
     LinkCase("list_asset_domains", {}, {r"/assets/domain/list$": page_of([_domain_payload({})])},
              "[ID:101]", f"{HOST}/assets/domain/101/overview"),
-    LinkCase("list_asset_ports", {}, {r"/assets/ip/port/list$": page_of([_port_json()])},
+    LinkCase("list_asset_ports", {}, {r"/assets/ip/port/list$": page_of([port_json()])},
              "[ID:9]", f"{HOST}/assets/ip/4/ports"),
     LinkCase("search_dns_records", {},
              {r"/dns-records/list$": page_of([{
@@ -185,9 +168,9 @@ LINK_CASES = [
                  "meta": {"pagination": {"total": 1}},
              }},
              "Portal:", f"{HOST}/assets/domain/3/overview"),
-    LinkCase("get_stale_findings", {}, {r"/findings/list$": page_of([_finding_json(5)])},
+    LinkCase("get_stale_findings", {}, {r"/findings/list$": page_of([finding_json(5)])},
              "[ID:5", f"{HOST}/findings/5"),
-    LinkCase("get_new_assets_since", {}, {r"/assets/ip/port/list$": page_of([_port_json()])},
+    LinkCase("get_new_assets_since", {}, {r"/assets/ip/port/list$": page_of([port_json()])},
              "• 192.0.2.1:443 (verified)", f"{HOST}/assets/ip/4/ports"),
     LinkCase("get_out_of_scope_assets", {}, {r"/assets/domain/list$": page_of([_domain_payload({})])},
              "example.com", f"{HOST}/assets/domain/101/overview"),
@@ -202,7 +185,7 @@ LINK_CASES = [
     LinkCase("get_assets_by_technology", {"technology_search": "nginx"},
              {r"/service-listing/list$": page_of([_service_json()])},
              "192.0.2.1:443", f"{HOST}/assets/ip/4/ports"),
-    LinkCase("get_recent_remediations", {}, {r"/findings/list$": page_of([_finding_json(5)])},
+    LinkCase("get_recent_remediations", {}, {r"/findings/list$": page_of([finding_json(5)])},
              "[ID:5", f"{HOST}/findings/5"),
     LinkCase("list_services", {}, {r"/service-listing/list$": page_of([_service_json()])},
              "[ID:21", f"Ports: {HOST}/assets/ip/4/ports"),
@@ -254,9 +237,28 @@ def test_tools_print_the_portal_link_on_the_entity_line(case, tools, fake_platfo
     assert case.url in line, f"{case.tool} line lacks {case.url}:\n{out}"
 
 
+def test_export_finding_pdf_names_the_finding_it_links_to(tools, fake_platform):
+    fake_platform.route(r"/findings/show/5(\.0)?$", JsonReply({"data": finding_json(5)}))
+
+    out = tools["export_finding_pdf"](finding_id=5)
+
+    assert out == (
+        "This tool cannot return the PDF. Open finding 5 (Example finding) in the watchTowr Platform "
+        "and export the PDF there.\n"
+        f"Portal: {HOST}/findings/5"
+    )
+
+
+def test_export_finding_pdf_gives_no_link_for_a_finding_the_platform_cannot_find(tools, fake_platform):
+    fake_platform.route(r"/findings/show/", JsonReply({"message": "Not Found"}, status=404))
+
+    with pytest.raises(ToolError, match="404"):
+        tools["export_finding_pdf"](finding_id=999999999)
+
+
 def test_affected_port_without_its_ip_gets_no_link(tools, fake_platform):
     affected = {"type": "port", "id": 9, "port": 443}
-    fake_platform.route(r"/findings/show/5(\.0)?$", JsonReply({"data": _finding_json(5, affected)}))
+    fake_platform.route(r"/findings/show/5(\.0)?$", JsonReply({"data": finding_json(5, affected)}))
 
     out = tools["get_finding_details"](finding_id=5)
 
@@ -273,7 +275,7 @@ def test_detail_portal_line_follows_the_header(tools, fake_platform):
 
 
 def test_list_header_link_is_on_its_own_line(tools, fake_platform):
-    fake_platform.route(r"/hunts/show/42(\.0)?/findings$", JsonReply(page_of([_finding_json(5)])))
+    fake_platform.route(r"/hunts/show/42(\.0)?/findings$", JsonReply(page_of([finding_json(5)])))
 
     lines = tools["list_findings_by_hunt"](hunt_id=42).splitlines()
 
