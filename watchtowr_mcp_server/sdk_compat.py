@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import pprint
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Dict, Optional, get_args
 
@@ -112,7 +113,11 @@ def models_embedding(models_pkg, model_names: set[str]) -> list[str]:
         if not more:
             break
         embedding |= more
-    pending = embedding - set(model_names)
+    return _nested_models_first(embedding - set(model_names), embedded_in)
+
+
+def _nested_models_first(model_names: set[str], embedded_in: dict[str, set[str]]) -> list[str]:
+    pending = set(model_names)
     ordered: list[str] = []
     while pending:
         ready = sorted(name for name in pending if not embedded_in[name] & pending) or sorted(pending)
@@ -138,6 +143,9 @@ def response_keys_the_sdk_defines(model_class) -> frozenset[str] | None:
     return frozenset(keys) if keys is not None else None
 
 
+_reading_platform_response: ContextVar[bool] = ContextVar("reading_platform_response", default=False)
+
+
 def drop_unknown_keys_before_from_dict(model_class) -> None:
     if not hasattr(model_class, "stock_from_dict"):
         model_class.stock_from_dict = model_class.from_dict
@@ -146,7 +154,11 @@ def drop_unknown_keys_before_from_dict(model_class) -> None:
     def from_dict_without_unknown_keys(cls, obj: Optional[Dict[str, Any]]) -> Any:
         if isinstance(obj, dict):
             obj = {key: value for key, value in obj.items() if key in known_keys}
-        return cls.stock_from_dict(obj)
+        reading = _reading_platform_response.set(True)
+        try:
+            return cls.stock_from_dict(obj)
+        finally:
+            _reading_platform_response.reset(reading)
 
     model_class.from_dict = classmethod(from_dict_without_unknown_keys)  # type: ignore[assignment]
 
@@ -157,6 +169,32 @@ def models_with_defined_response_keys(models_pkg) -> list[type[BaseModel]]:
         for model_class in vars(models_pkg).values()
         if isinstance(model_class, type) and response_keys_the_sdk_defines(model_class) is not None
     ]
+
+
+def _skip_while_reading_platform_response(validate):
+    def validate_unless_reading_platform_response(value):
+        return value if _reading_platform_response.get() else validate(value)
+
+    return validate_unless_reading_platform_response
+
+
+def accept_unknown_enum_values_in_platform_responses(model_class: type[BaseModel]) -> bool:
+    enum_validators = [
+        validator
+        for name, validator in model_class.__pydantic_decorators__.field_validators.items()
+        if name.endswith("_validate_enum")
+    ]
+    for validator in enum_validators:
+        validator.func = _skip_while_reading_platform_response(validator.func)
+    return bool(enum_validators)
+
+
+def rebuild_nested_models_first(models_pkg, model_names: set[str]) -> None:
+    embedded_in = {
+        name: _sdk_models_embedded_in(getattr(models_pkg, name)) - {name} for name in model_names
+    }
+    for name in _nested_models_first(model_names, embedded_in):
+        getattr(models_pkg, name).model_rebuild(force=True)
 
 
 def apply_watchtowr_sdk_compat_patches() -> None:
@@ -171,6 +209,17 @@ def apply_watchtowr_sdk_compat_patches() -> None:
 
     for model_class in models_with_defined_response_keys(models_pkg):
         drop_unknown_keys_before_from_dict(model_class)
+
+    models_accepting_unknown_enum_values = {
+        model_class.__name__
+        for model_class in models_with_defined_response_keys(models_pkg)
+        if accept_unknown_enum_values_in_platform_responses(model_class)
+    }
+    rebuild_nested_models_first(
+        models_pkg,
+        models_accepting_unknown_enum_values
+        | set(models_embedding(models_pkg, models_accepting_unknown_enum_values)),
+    )
 
     # Patch Link: previous/next are null on the first/last page respectively.
     def link_from_dict(cls, obj: Optional[Dict[str, Any]]) -> Any:

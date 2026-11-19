@@ -7,9 +7,11 @@ from datetime import datetime, timezone
 
 import pytest
 from pydantic import BaseModel
+from watchtowr_api_sdk.models.active_defense_rule import ActiveDefenseRule
 from watchtowr_api_sdk.models.capability_search_hunt_item import CapabilitySearchHuntItem
 from watchtowr_api_sdk.models.hunt import Hunt
 from watchtowr_api_sdk.models.hunt_detail import HuntDetail
+from watchtowr_api_sdk.models.paginated_active_defense_rules import PaginatedActiveDefenseRules
 
 from watchtowr_mcp_server.sdk_compat import (
     NULLABLE_FIELDS,
@@ -246,9 +248,20 @@ def test_capability_search_hunt_item_accepts_null_hunt_request_type():
     (HuntDetail, _hunt_detail_payload("NotARequestType")),
     (CapabilitySearchHuntItem, {**_hunt_payload("NotARequestType"), "cve_ids": []}),
 ])
-def test_hunt_request_type_still_rejects_values_outside_the_sdk_enum(model_class, payload):
-    with pytest.raises(ValueError):
-        model_class.from_dict(payload)
+def test_hunt_request_type_still_rejects_values_outside_the_sdk_enum_outside_a_platform_response(
+    model_class, payload
+):
+    with pytest.raises(ValueError, match="must be one of enum values"):
+        model_class.model_validate(payload)
+
+
+@pytest.mark.parametrize(("model_class", "payload"), [
+    (Hunt, _hunt_payload("NotARequestType")),
+    (HuntDetail, _hunt_detail_payload("NotARequestType")),
+    (CapabilitySearchHuntItem, {**_hunt_payload("NotARequestType"), "cve_ids": []}),
+])
+def test_hunt_request_type_from_a_platform_response_keeps_a_value_the_sdk_does_not_list(model_class, payload):
+    assert model_class.from_dict(payload).hunt_request_type == "NotARequestType"
 
 
 def test_hunt_assets_list_accepts_null_intrusive_http_checks_enabled():
@@ -444,3 +457,38 @@ def test_a_dropped_unknown_key_keeps_the_aliased_keys_the_sdk_defines():
 
     dto = AssetBusinessUnitIdsDTO.from_dict({"businessUnitIds": [3.0], "key_the_sdk_does_not_define": True})
     assert dto.business_unit_ids == [3.0]
+
+
+ACTIVE_DEFENSE_RULE_WITH_A_NEW_PROVIDER = {
+    "id": 1,
+    "ruleName": "CVE-2026-0001 virtual patch",
+    "type": "cve",
+    "kevStatus": {"cisa": True, "vulncheck": False, "watchtowr": False},
+    "zeroDay": False,
+    "providers": ["cloudflare", "tencent_cloud_edgeone"],
+    "createdAt": "2026-11-19T00:00:00Z",
+    "updatedAt": "2026-11-19T00:00:00Z",
+}
+
+
+def test_active_defense_rule_keeps_a_provider_the_sdk_does_not_list():
+    rule = ActiveDefenseRule.from_dict(ACTIVE_DEFENSE_RULE_WITH_A_NEW_PROVIDER)
+
+    assert rule.providers == ["cloudflare", "tencent_cloud_edgeone"]
+
+
+def test_paginated_active_defense_rules_keep_a_provider_the_sdk_does_not_list():
+    page = PaginatedActiveDefenseRules.from_dict({
+        "data": [ACTIVE_DEFENSE_RULE_WITH_A_NEW_PROVIDER],
+        "meta": {"pagination": {
+            "total": 1, "count": 1, "per_page": 20, "current_page": 1, "total_pages": 1,
+            "links": {"first": "?page=1", "last": "?page=1", "previous": None, "next": None},
+        }},
+    })
+
+    assert page.data[0].providers == ["cloudflare", "tencent_cloud_edgeone"]
+
+
+def test_active_defense_rule_still_rejects_providers_that_are_not_a_list():
+    with pytest.raises(Exception, match="valid list"):
+        ActiveDefenseRule.from_dict({**ACTIVE_DEFENSE_RULE_WITH_A_NEW_PROVIDER, "providers": "cloudflare"})
