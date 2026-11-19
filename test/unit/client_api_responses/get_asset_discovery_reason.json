@@ -1,0 +1,29 @@
+{
+  "api": "AssetsApi",
+  "method": "get_asset_discovery_reason",
+  "kwargs": {
+    "asset_type": "domain",
+    "id": 109
+  },
+  "response": {
+    "technique": "reverse_whois",
+    "sub_technique": "registrant_org",
+    "value": "Acme Corp",
+    "technique_label": "Reverse WHOIS",
+    "sub_technique_label": "Entity name",
+    "icon_key": "whois",
+    "group": "Registration data",
+    "value_kind": "text",
+    "platform": null,
+    "platform_label": null,
+    "module": "module-adversarysight-reversewhois-entity-enumeration",
+    "observed_at": "2026-11-18T10:00:00.123Z",
+    "origin": "emitted",
+    "evidence": {
+      "type": "whois",
+      "id": "whois-17",
+      "key": "registrant.organization",
+      "service_info_id": null
+    }
+  }
+}

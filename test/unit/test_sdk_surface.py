@@ -149,6 +149,8 @@ SDK_CALLS = [
     ("watchtowr_api_sdk.api.repositories_api", "RepositoriesApi", "get_asset_repository_changelog"),
     ("watchtowr_api_sdk.api.saa_s_platforms_api", "SaaSPlatformsApi", "get_asset_saas_platform_changelog"),
     ("watchtowr_api_sdk.api.subdomains_api", "SubdomainsApi", "get_asset_subdomain_changelog"),
+    # Discovery reasons
+    ("watchtowr_api_sdk.api.assets_api", "AssetsApi", "get_asset_discovery_reason"),
 ]
 
 
