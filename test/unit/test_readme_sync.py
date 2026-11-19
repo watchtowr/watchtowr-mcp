@@ -21,7 +21,7 @@ TOOLS_DIR = REPO_ROOT / "watchtowr_mcp_server" / "tools"
 # pairs in lockstep with the README headings.
 CATEGORY_MAP = {
     "Findings": (("findings.py",), 11),
-    "Assets": (("assets/core.py", "assets/changelog.py", "assets/dns.py"), 38),
+    "Assets": (("assets/core.py", "assets/changelog.py", "assets/dns.py", "assets/discovery_reason.py"), 39),
     "Hunts": (("hunts.py",), 6),
     "Threat Intelligence": (("threat_intel.py",), 7),
     "Services": (("services.py",), 2),

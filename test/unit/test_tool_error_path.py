@@ -27,6 +27,7 @@ REQUIRED_ARG_OVERRIDES: dict[str, dict] = {
     "manage_engine_settings": {"asset_type": "domain"},
     "find_related_assets": {"asset_type": "domain"},
     "get_asset_changelog": {"asset_type": "domain"},
+    "get_asset_discovery_reason": {"asset_type": "domain"},
     "update_asset_status": {"asset_type": "domain", "status": "verified"},
     "get_findings_by_asset": {"asset_type": "domain"},
     "set_asset_criticality": {"asset_type": "domain", "criticality": "High"},

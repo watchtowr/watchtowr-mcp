@@ -4,7 +4,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that c
 
 ## Features
 
-- **116 tools** covering the full watchTowr Platform API — assets, findings, hunts, certificates, suspicious domains, and more
+- **117 tools** covering the full watchTowr Platform API — assets, findings, hunts, certificates, suspicious domains, and more
 - **Read and write** — query your attack surface and take action (update statuses, trigger retests, submit seed assets)
 - **Composite intelligence** — built-in tools for attack surface summaries, change detection, executive scorecards, and compliance reporting
 - **Secure** — authenticates via API key with tenant isolation; credentials never leave your environment
@@ -252,7 +252,7 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 | `get_unresolved_findings_by_business_unit` | List unresolved findings for a specific business unit |
 | `export_finding_pdf` | Link to the finding in the Platform, where its PDF report can be exported |
 
-### Assets (38 tools)
+### Assets (39 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -294,6 +294,7 @@ These headers carry no API key, tool arguments or other secrets; the API key is 
 | `get_asset_changelog` | Get change history for a specific asset |
 | `get_asset_dns_records` | Get DNS records associated with a specific asset by name |
 | `search_dns_records` | Search DNS records across discovered assets |
+| `get_asset_discovery_reason` | Get how an asset was found: technique, matched value and module |
 
 ### Hunts (6 tools)
 
@@ -483,7 +484,7 @@ watchtowr-mcp/
 A two-layer test suite lives under `test/` — see `test/README.md` for details.
 
 - **Unit tests** (offline, no credentials): verify every SDK method the server imports actually exists, that `README.md` stays in sync with the `@mcp.tool()` registry, and that `sdk_compat` patches apply cleanly.
-- **Integration tests** (live tenant): one test per tool across all 116 tools. Auto-skipped when `WATCHTOWR_API_KEY` / `WATCHTOWR_PLATFORM_HOST` are absent. Mutating tools are gated behind a separate `--run-writes` flag.
+- **Integration tests** (live tenant): one test per tool across all 117 tools. Auto-skipped when `WATCHTOWR_API_KEY` / `WATCHTOWR_PLATFORM_HOST` are absent. Mutating tools are gated behind a separate `--run-writes` flag.
 
 ```bash
 # Offline checks

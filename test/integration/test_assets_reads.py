@@ -52,6 +52,10 @@ def test_get_asset_domain_details(live_env, call, sample_domain_id):
     assert_ok(call("get_asset_domain_details", domain_id=sample_domain_id))
 
 
+def test_get_asset_discovery_reason(live_env, call, sample_domain_id):
+    assert_ok(call("get_asset_discovery_reason", asset_type="domain", asset_id=sample_domain_id), allow_empty=True)
+
+
 def test_list_asset_subdomains(live_env, call):
     assert_ok(call("list_asset_subdomains", page_size=5), allow_empty=True)
 
